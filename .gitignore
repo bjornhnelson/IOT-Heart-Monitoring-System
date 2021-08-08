@@ -1,16 +1,21 @@
-# Prerequisites
-*.d
+# Mac OS directory store files
+.DS_Store
 
 # Object files
 *.o
+# dont ignore this file
+!binapploader.o
 *.ko
 *.obj
 *.elf
 
-# Linker output
-*.ilk
+# Compiler Artifacts
+*.d
+*.bin
 *.map
-*.exp
+*makefile
+*.mk
+*.axf
 
 # Precompiled Headers
 *.gch
@@ -19,6 +24,11 @@
 # Libraries
 *.lib
 *.a
+# dont ignore these files
+!libpsstore.a
+!libbluetooth.a
+!libmbedtls.a
+!librail_efr32xg13_gcc_release.a
 *.la
 *.lo
 
@@ -38,15 +48,21 @@
 
 # Debug files
 *.dSYM/
-*.su
-*.idb
-*.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Release Folders
+GNU\ ARM*
+
+# Temporary files
+*~
+
+# Swap files
+*.swp
+
+# Backup files
+*.bak
+
+# settings file
+.settings
+
+# Project import result
+imported_project_report.html
