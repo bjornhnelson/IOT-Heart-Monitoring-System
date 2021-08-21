@@ -1,7 +1,7 @@
 #CRC Codes for initially generated config files -- do not modify!
 app_assert_config.h=1717687323
 app_log_config.h=-311987036
-btconf/gatt_configuration.btconf=1170408657
+btconf/gatt_configuration.btconf=-469633858
 btconf/ota_dfu.xml=512938454
 emlib_core_debug_config.h=171843933
 mbedtls_config.h=384290189

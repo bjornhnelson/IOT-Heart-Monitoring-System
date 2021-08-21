@@ -16,21 +16,18 @@
 #define SL_MEMLCD_SPI_CLK_PORT                   gpioPortC
 #define SL_MEMLCD_SPI_CLK_PIN                    8
 #define SL_MEMLCD_SPI_CLK_LOC                    11
-
 // [USART_SL_MEMLCD_SPI]$
 
 // <gpio> SL_MEMLCD_SPI_CS
 // $[GPIO_SL_MEMLCD_SPI_CS]
 #define SL_MEMLCD_SPI_CS_PORT                    gpioPortD
 #define SL_MEMLCD_SPI_CS_PIN                     14
-
 // [GPIO_SL_MEMLCD_SPI_CS]$
 
 // <gpio optional=true> SL_MEMLCD_EXTCOMIN
 // $[GPIO_SL_MEMLCD_EXTCOMIN]
 #define SL_MEMLCD_EXTCOMIN_PORT                  gpioPortD
 #define SL_MEMLCD_EXTCOMIN_PIN                   13
-
 // [GPIO_SL_MEMLCD_EXTCOMIN]$
 
 // <<< sl:end pin_tool >>>
