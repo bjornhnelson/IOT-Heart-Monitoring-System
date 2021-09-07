@@ -38,10 +38,10 @@ component:
 - instance: [vcom]
   id: iostream_usart
 - {id: bluetooth_feature_system}
-- {id: bluetooth_feature_scanner}
-- {id: emlib_letimer}
 - instance: [sensor]
   id: i2cspm
+- {id: emlib_letimer}
+- {id: bluetooth_feature_scanner}
 - {id: component_catalog}
 - {id: ota_dfu}
 - {id: bootloader_interface}
