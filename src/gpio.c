@@ -17,8 +17,6 @@
 
 
 
-
-
 // Set GPIO drive strengths and modes of operation
 void gpioInit()
 {
@@ -32,8 +30,6 @@ void gpioInit()
 	GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthStrongAlternateStrong);
 	//GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(LED1_port, LED1_pin, gpioModePushPull, false);
-
-
 
 } // gpioInit()
 

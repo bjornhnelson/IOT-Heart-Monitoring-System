@@ -53,7 +53,8 @@ void     printSLErrorString (sl_status_t status);
 /*
  * Remove all logging related code where logging is not enabled
  */
-#define LOG_DO(message,level, ...)
+//#define LOG_DO(message,level, ...)
+static inline void LOG_DO() {}
 //static inline void logInit() {}
 //static inline void logFlush() {}
 

@@ -31,7 +31,3 @@ See [Mastering Markdown](https://guides.github.com/features/mastering-markdown/)
 6. How has the power consumption performance of your design changed since the previous assignment?
    Answer:
    
-7. Describe how you have tested your code to ensure you are sleeping in EM1 mode during I2C transfers.
-   Answer:
-   
-

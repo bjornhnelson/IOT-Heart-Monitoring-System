@@ -36,7 +36,20 @@
  ******************************************************************************/
 
 
+// *************************************************
+// Students: It is OK to modify this file.
+//           Make edits appropriate for each
+//           assignment.
+// *************************************************
+
+
 #include "app.h"
+
+// Students: Here is an example of how to include logging functions in each .c file.
+//           Apply this technique to your other .c files.
+//           Do not #include "src/log.h" in any .h file! This logging scheme is designed
+//           to be included at the top of each .c file that you want to call one
+//           of the LOG_***() functions from.
 
 // Include logging for this file
 #define INCLUDE_LOG_DEBUG 1

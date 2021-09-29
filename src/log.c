@@ -84,30 +84,5 @@ void printSLErrorString(sl_status_t status) {
 
 
 
-// This is from SSv4, left here for reference.
-/**
- * Initialize logging for Blue Gecko.
- * See https://www.silabs.com/community/wireless/bluetooth/forum.topic.html/how_to_do_uart_loggi-ByI
- */
-
-//void logInit(void)
-//{
-//	RETARGET_SerialInit();
-//	/**
-//	 * See https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/group__RetargetIo.html#ga9e36c68713259dd181ef349430ba0096
-//	 * RETARGET_SerialCrLf() ensures each linefeed also includes carriage return.  Without it, the first character is shifted in TeraTerm
-//	 */
-//	RETARGET_SerialCrLf(true);
-//	LOG_INFO("Initialized Logging");
-//}
-
-///**
-// * Block for chars to be flushed out of the serial port.  Important to do this before entering SLEEP() or you may see garbage chars output.
-// */
-//void logFlush(void)
-//{
-//	RETARGET_SerialFlush();
-//}
-
 
 
