@@ -93,13 +93,14 @@ sl_power_manager_on_isr_exit_t app_sleep_on_isr_exit(void)
  *****************************************************************************/
 SL_WEAK void app_init(void)
 {
-  // Put your application 1-time init code here
+  // Put your application 1-time initialization code here.
   // This is called once during start-up.
   // Don't call any Bluetooth API functions until after the boot event.
 
 
   // Student Edit: Add a call to gpioInit() here
   
+
 
 
 

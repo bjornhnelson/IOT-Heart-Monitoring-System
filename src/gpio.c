@@ -11,9 +11,15 @@
  */
 
 
+// *****************************************************************************
+// Students:
+// We will be creating additional functions that configure and manipulate GPIOs.
+// For any new GPIO function you create, place that function in this file.
+// *****************************************************************************
 
 
 #include "gpio.h"
+
 
 
 
@@ -30,6 +36,8 @@ void gpioInit()
 	GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthStrongAlternateStrong);
 	//GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(LED1_port, LED1_pin, gpioModePushPull, false);
+
+
 
 } // gpioInit()
 

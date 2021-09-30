@@ -43,8 +43,6 @@
 
 #define LOG_DO(message,level, ...) \
   app_log( "%5"PRIu32":%s:%s: " message "\n", loggerGetTimestamp(), level, __func__, ##__VA_ARGS__ )
-//void logInit();
-//void logFlush();
 uint32_t loggerGetTimestamp (void);
 void     printSLErrorString (sl_status_t status);
 
@@ -55,8 +53,6 @@ void     printSLErrorString (sl_status_t status);
  */
 //#define LOG_DO(message,level, ...)
 static inline void LOG_DO() {}
-//static inline void logInit() {}
-//static inline void logFlush() {}
 
 #endif // #else
 

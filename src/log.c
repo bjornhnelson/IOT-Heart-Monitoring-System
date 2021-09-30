@@ -42,7 +42,7 @@ uint32_t loggerGetTimestamp()
     
        // Students: You will eventually develop this function letimerMilliseconds()
        //           and not return 0. This will be the function to call for your graded
-       //           assignments. Put this function in your irq.c/.h files.
+       //           assignments. Put the letimerMilliseconds() function in your irq.c/.h files.
        
        //return letimerMilliseconds();
 	   return (0);
