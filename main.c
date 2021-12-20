@@ -45,7 +45,29 @@
 // *************************************************
 
 
-#include "main.h"
+//#include "main.h"
+#ifndef MAIN_H
+#define MAIN_H
+
+#include "sl_component_catalog.h"
+#include "sl_system_init.h"
+
+#include "app.h"
+
+#if defined(SL_CATALOG_POWER_MANAGER_PRESENT)
+#include "sl_power_manager.h"
+#endif // SL_CATALOG_POWER_MANAGER_PRESENT
+#if defined(SL_CATALOG_KERNEL_PRESENT)
+#include "sl_system_kernel.h"
+#else // SL_CATALOG_KERNEL_PRESENT
+#include "sl_system_process_action.h"
+#endif // SL_CATALOG_KERNEL_PRESENT
+
+
+
+
+
+#endif
 
 
 int main(void)

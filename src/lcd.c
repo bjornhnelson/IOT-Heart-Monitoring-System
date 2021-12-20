@@ -49,9 +49,20 @@
 
 #include "stdarg.h" // for arguments
 
+#include "string.h"
+#include "sl_bt_api.h"
+
+#include "ble_device_type.h"
+#include "gpio.h"
+
+#include "glib.h" // the low-level graphics driver/library
+#include "dmd.h"  // the dot matrix display driver
+
+
 #include "lcd.h"
 
-// Include logging for this file
+
+// Include logging specifically for this .c file
 #define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
