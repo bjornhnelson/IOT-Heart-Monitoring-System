@@ -53,6 +53,12 @@
 #include "src/ble_device_type.h"
 #include "src/gpio.h"
 #include "src/lcd.h"
+#include "src/irq.h"
+#include "src/oscillators.h"
+#include "src/timers.h"
+#include "em_letimer.h"
+
+
 
 
 
@@ -156,6 +162,13 @@ SL_WEAK void app_init(void)
   // Student Edit: Add a call to gpioInit() here
   gpioInit();
 
+  // new code for A2
+  uint32_t clock_freq = init_oscillators();
+  init_timer(clock_freq);
+
+  NVIC_ClearPendingIRQ(LETIMER0_IRQn);
+  NVIC_EnableIRQ(LETIMER0_IRQn);
+
 }
 
 
@@ -189,7 +202,7 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  delayApprox(3500000);
+  /*delayApprox(3500000);
 
   gpioLed0SetOn();
   gpioLed1SetOn();
@@ -197,7 +210,10 @@ SL_WEAK void app_process_action(void)
   delayApprox(3500000);
 
   gpioLed0SetOff();
-  gpioLed1SetOff();
+  gpioLed1SetOff();*/
+
+  //uint32_t timer_val = LETIMER_CounterGet(LETIMER0);
+  //delayApprox(350000);
 
 }
 
