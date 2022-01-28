@@ -40,6 +40,8 @@ void init_timer(uint32_t clock_freq_hz) {
     // make sure command register is not busy
     while (LETIMER0->SYNCBUSY != 0);
 
+    // num ticks = (clock frequency / prescaler) * desired time duration
+
     // counter value for entire period, 2250 ms
     uint32_t comp0_value = clock_freq_hz * LETIMER_PERIOD_MS / (MSEC_PER_SEC * PRESCALER);
 
