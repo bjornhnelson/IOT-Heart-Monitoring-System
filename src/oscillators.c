@@ -14,28 +14,28 @@ uint32_t init_oscillators() {
 
   CMU_ClockEnable(cmuClock_GPIO, true);
 
-  // LFA CLK compatible with EM0/1/2/3
+  // LFA CLK compatible with EM0/1/2/3, see data sheet
 
-  // higher power energy modes
-  if ((LOWEST_ENERGY_MODE == 0) || (LOWEST_ENERGY_MODE == 1) || (LOWEST_ENERGY_MODE == 2)) {
-      // configure LFXO (32.768 KHz)
+  // higher power energy modes - configure LFXO (32.768 KHz)
+  if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM0) ||
+      (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) ||
+      (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
       CMU_OscillatorEnable(cmuOsc_LFXO, true, true);
       CMU_ClockSelectSet(cmuClock_LFA, cmuSelect_LFXO);
-      // CMU_ClockDivSet() called in timers.c
   }
-  // lower power energy modes
-  else if (LOWEST_ENERGY_MODE == 3) {
-      // configure ULFRCO (1 kHz)
+  // lower power energy modes - configure ULFRCO (1 kHz)
+  else if (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM3) {
       CMU_OscillatorEnable(cmuOsc_ULFRCO, true, true);
       CMU_ClockSelectSet(cmuClock_LFA, cmuSelect_ULFRCO);
-      // CMU_ClockDivSet() called in timers.c
   }
+
+  // set prescaler
+  CMU_ClockDivSet(cmuClock_LETIMER0, PRESCALER);
 
   // turn on the clocks
   CMU_ClockEnable(cmuClock_LFA, true);
   CMU_ClockEnable(cmuClock_LETIMER0, true);
 
-  uint32_t clock_freq_hz = CMU_ClockFreqGet(cmuClock_LFA);
-  return clock_freq_hz; // return frequency for timer setup
+  return CMU_ClockFreqGet(cmuClock_LFA); // return frequency for timer setup
 
 }

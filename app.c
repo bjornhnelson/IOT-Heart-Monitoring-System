@@ -74,8 +74,9 @@
 //   up the MCU from the call to sl_power_manager_sleep() in the main while (1)
 //   loop.
 // Students: We'll need to modify this for A2 onward.
-#define APP_IS_OK_TO_SLEEP      (false)
-//#define APP_IS_OK_TO_SLEEP      (true)
+
+#define APP_IS_OK_TO_SLEEP ((LOWEST_ENERGY_MODE) == (SL_POWER_MANAGER_EM0) ? (false):(true))
+
 
 // Return values for app_sleep_on_isr_exit():
 //   SL_POWER_MANAGER_IGNORE; // The module did not trigger an ISR and it doesn't want to contribute to the decision
@@ -159,10 +160,13 @@ SL_WEAK void app_init(void)
   // Don't call any Bluetooth API functions until after the boot event.
 
 
-  // Student Edit: Add a call to gpioInit() here
-  gpioInit();
+  // energy mode setup
+  if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
+      sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
+  }
 
   // new code for A2
+  gpioInit();
   uint32_t clock_freq = init_oscillators();
   init_timer(clock_freq);
 
@@ -178,6 +182,7 @@ SL_WEAK void app_init(void)
  * comment out this function. Wait loops are a bad idea in general.
  * We'll discuss how to do this a better way in the next assignment.
  *****************************************************************************/
+/*
 static void delayApprox(int delay)
 {
   volatile int i;
@@ -187,6 +192,7 @@ static void delayApprox(int delay)
   }
 
 } // delayApprox()
+*/
 
 
 
@@ -202,18 +208,7 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  /*delayApprox(3500000);
-
-  gpioLed0SetOn();
-  gpioLed1SetOn();
-
-  delayApprox(3500000);
-
-  gpioLed0SetOff();
-  gpioLed1SetOff();*/
-
-  //uint32_t timer_val = LETIMER_CounterGet(LETIMER0);
-  //delayApprox(350000);
+  // nothing to do here in A2, events are interrupt driven
 
 }
 
