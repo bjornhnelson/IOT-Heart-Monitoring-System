@@ -50,11 +50,7 @@
 // Specify energy mode: 0 - EM0, 1 - EM1, 2 - EM2, 3 - EM3
 #define LOWEST_ENERGY_MODE (SL_POWER_MANAGER_EM0)
 
-#define LETIMER_ON_TIME_MS (175)
-
-#define LETIMER_PERIOD_MS (2250)
-
-#define LETIMER_OFF_TIME_MS (LETIMER_PERIOD_MS - LETIMER_ON_TIME_MS)
+#define LETIMER_PERIOD_MS (3000)
 
 
 /**************************************************************************//**

@@ -42,20 +42,21 @@ void init_timer(uint32_t clock_freq_hz) {
 
     // num ticks = (clock frequency / prescaler) * desired time duration
 
-    // counter value for entire period, 2250 ms
+    // counter value for entire period, 3000 ms
     uint32_t comp0_value = clock_freq_hz * LETIMER_PERIOD_MS / (MSEC_PER_SEC * PRESCALER);
-
-    // counter value for when LED is off, 2075 ms
-    uint32_t comp1_value = clock_freq_hz * LETIMER_OFF_TIME_MS / (MSEC_PER_SEC * PRESCALER);
 
     // set compare registers for timer
     LETIMER_CompareSet(LETIMER0, 0, comp0_value);
-    LETIMER_CompareSet(LETIMER0, 1, comp1_value);
 
-    // enable interrupts for toggling LED
-    LETIMER_IntEnable(LETIMER0, LETIMER_IEN_COMP1 | LETIMER_IEN_UF);
+    // enable interrupts for doing si7021 measurements
+    LETIMER_IntEnable(LETIMER0, LETIMER_IEN_UF);
 
     // start running the timer
     LETIMER_Enable(LETIMER0, true);
+
+}
+
+void timerWaitUs(uint32_t us_wait) {
+
 
 }

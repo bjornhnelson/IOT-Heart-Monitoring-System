@@ -13,21 +13,17 @@
 
 void LETIMER0_IRQHandler() {
 
+  CORE_ATOMIC_IRQ_DISABLE();
+
   // get enabled and pending LETIMER interrupt flags
   uint32_t flags = LETIMER_IntGetEnabled(LETIMER0);
   LETIMER_IntClear(LETIMER0, flags);
 
-  // LED timing
-  // ON from t=0 to t=175 ms
-  // OFF from t=175 to t=2250 ms
-
-  // turn on LED when CNT = 0 (underflow)
   if (flags & LETIMER_IF_UF) {
-      gpioLed0SetOn();
+      // measure temperature
+      schedulerSetEventUF();
   }
-  // turn off LED when CNT = COMP1
-  if (flags & LETIMER_IF_COMP1) {
-      gpioLed0SetOff();
-  }
+
+  CORE_ATOMIC_IRQ_ENABLE();
 
 }
