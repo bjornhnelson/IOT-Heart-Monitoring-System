@@ -19,10 +19,10 @@ void LETIMER0_IRQHandler() {
   uint32_t flags = LETIMER_IntGetEnabled(LETIMER0);
   LETIMER_IntClear(LETIMER0, flags);
 
-  if (flags & LETIMER_IF_UF) {
+  /*if (flags & LETIMER_IF_UF) {
       // measure temperature
       schedulerSetEventUF();
-  }
+  }*/
 
   CORE_ATOMIC_IRQ_ENABLE();
 

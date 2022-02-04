@@ -11,5 +11,6 @@
 #define SRC_TIMERS_H_
 
 void init_timer(uint32_t clock_freq);
+void timerWaitUs(uint32_t us_wait);
 
 #endif /* SRC_TIMERS_H_ */
