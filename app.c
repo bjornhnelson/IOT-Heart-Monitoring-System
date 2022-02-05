@@ -210,12 +210,10 @@ SL_WEAK void app_process_action(void)
 
   // nothing to do here in A2, events are interrupt driven
 
-  while (1) {
-      gpioLed0SetOn();
-      timerWaitUs(1000000);
-      gpioLed0SetOff();
-      timerWaitUs(1000000);
-  }
+  gpioLed0SetOn();
+  timerWaitUs(2500000);
+  gpioLed0SetOff();
+  timerWaitUs(2999999);
 
 }
 
