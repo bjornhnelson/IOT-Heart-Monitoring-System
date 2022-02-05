@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include "em_gpio.h"
 #include <string.h>
+#include "gpio.h"
 
 
 // Student Edit: Define these, 0's are placeholder values.
@@ -33,19 +34,17 @@
 #define LED1_pin   5
 
 
+#define I2C_SCL_PORT gpioPortC
+#define I2C_SCL_PIN 10
+#define I2C_SDA_PORT gpioPortC
+#define I2C_SDA_PIN 11
 
-
-
-#include "gpio.h"
-
-
+#define SI7021_PORT gpioPortD
+#define SI7021_PIN 15
 
 
 // Set GPIO drive strengths and modes of operation
-void gpioInit()
-{
-
-  // Student Edit:
+void gpioInit() {
 
 	//GPIO_DriveStrengthSet(LED0_port, gpioDriveStrengthStrongAlternateStrong);
 	GPIO_DriveStrengthSet(LED0_port, gpioDriveStrengthWeakAlternateWeak);
@@ -55,36 +54,59 @@ void gpioInit()
 	GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(LED1_port, LED1_pin, gpioModePushPull, false);
 
+}
 
-
-} // gpioInit()
-
-
+// Turn on LED 0
 void gpioLed0SetOn()
 {
 	GPIO_PinOutSet(LED0_port,LED0_pin);
 }
 
-
+// Turn off LED 0
 void gpioLed0SetOff()
 {
 	GPIO_PinOutClear(LED0_port,LED0_pin);
 }
 
-
+// Turn on LED 1
 void gpioLed1SetOn()
 {
 	GPIO_PinOutSet(LED1_port,LED1_pin);
 }
 
-
+// Turn off LED 1
 void gpioLed1SetOff()
 {
 	GPIO_PinOutClear(LED1_port,LED1_pin);
 }
 
+// Turn on I2C SCL pin
+void gpioI2cSclEnable() {
+    GPIO_PinOutSet(I2C_SCL_PORT, I2C_SCL_PIN);
+}
 
+// Turn off I2C SCL pin
+void gpioI2cSclDisable() {
+    GPIO_PinOutClear(I2C_SCL_PORT, I2C_SCL_PIN);
+}
 
+// Turn on I2C SDA pin
+void gpioI2cSdaEnable() {
+    GPIO_PinOutSet(I2C_SDA_PORT, I2C_SDA_PIN);
+}
 
+// Turn off I2C SDA pin
+void gpioI2cSdaDisable() {
+    GPIO_PinOutClear(I2C_SDA_PORT, I2C_SDA_PIN);
+}
 
+// Turn on temperature sensor pin
+void gpioSi7021Enable() {
+    GPIO_PinOutSet(SI7021_PORT, SI7021_PIN);
+}
+
+// Turn off temperature sensor pin
+void gpioSi7021Disable() {
+    GPIO_PinOutClear(SI7021_PORT, SI7021_PIN);
+}
 

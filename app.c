@@ -113,7 +113,7 @@
 //           to call one of the LOG_***() functions from.
 
 // Include logging specifically for this .c file
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 
 
@@ -213,7 +213,7 @@ SL_WEAK void app_process_action(void)
       case IDLE:
           break;
       case EVENT_READ_TEMP:
-          LOG_INFO("Sensor read event");
+          //LOG_INFO("Sensor read event");
           read_temp_from_si7021();
           break;
       default:

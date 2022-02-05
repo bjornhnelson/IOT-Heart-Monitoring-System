@@ -10,6 +10,11 @@
 #include "app.h"
 #include "em_cmu.h"
 
+/*
+ * Initializes clocks based on current energy mode setting define in app.h
+ *
+ * Returns: LFA clock frequency in hertz
+ */
 uint32_t init_oscillators() {
 
   CMU_ClockEnable(cmuClock_GPIO, true);

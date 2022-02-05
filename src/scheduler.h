@@ -10,25 +10,26 @@
 
 #include "stdint.h"
 
+// represents no events pending
 #define IDLE (0)
 
+// bit 0 assigned to temperature read event
+// bits 1-7 currently unassigned
 #define EVENT_READ_TEMP (1 << 0)
+
+// number of event statuses that can be handled simultaneously
 #define MAX_EVENTS 8
 
 // data structure to monitor status of up to  8 events
 // bit toggled to 1 -> event occurred
 static volatile uint8_t event_flags;
 
-// scheduler routine to initialize the data structure
 void init_scheduler();
 
-// scheduler routine to set a scheduler event
 void scheduler_set_event(uint8_t event);
 
-// scheduler routine to clear a scheduler event
 void scheduler_clear_event(uint8_t event);
 
-// scheduler routine to return 1 event to main()code and clear that event
 uint8_t get_next_event();
 
 #endif /* SRC_SCHEDULER_H_ */

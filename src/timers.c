@@ -18,9 +18,11 @@
 #define MSEC_PER_SEC 1000
 #define USEC_TO_SEC 1000000
 
-uint32_t clock_freq_hz;
-uint16_t cnt_max;
+// global variables
+uint32_t clock_freq_hz; // frequency / prescaler
+uint16_t cnt_max; // saving COMP 0 register for use in wait function
 
+// data structure for initializing LETIMER0
 // https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/structLETIMER__Init__TypeDef.html
 static const LETIMER_Init_TypeDef letimer_settings =
 {
@@ -38,10 +40,14 @@ static const LETIMER_Init_TypeDef letimer_settings =
 };
 
 
-// freq_hz: 1 kHz or 32.768 KHz (LFA frequency)
+/*
+ * initializes LETIMER0
+ *
+ * clock_freq = LFA freq determined in oscillator initialization
+ */
 void init_timer(uint32_t clock_freq) {
 
-    // set global variables
+    // save into global variable
     clock_freq_hz = clock_freq / PRESCALER;
 
     // initialize with settings in structure
@@ -66,27 +72,38 @@ void init_timer(uint32_t clock_freq) {
 
 }
 
+/*
+ * Delays for a specified number of microseconds
+ * Maximum supported delay = 3 seconds
+ *
+ * us_wait = delay duration in us
+ */
 void timerWaitUs(uint32_t us_wait) {
 
       uint16_t ms_wait = us_wait / USEC_PER_MSEC;
 
+      // range checking
       if (ms_wait >= LETIMER_PERIOD_MS) {
           ms_wait = LETIMER_PERIOD_MS - 1;
           //LOG_WARN("Requested delay exceeds supported maximum. Delay time capped to %d msecs", LETIMER_PERIOD_MS);
       }
 
+      // compute how many ticks for specified delay
       uint16_t delay_ticks = clock_freq_hz * ms_wait / MSEC_PER_SEC;
-
       uint16_t start_tick = LETIMER_CounterGet(LETIMER0);
 
-      uint16_t stop_tick;
-      if (delay_ticks < start_tick) { // case 1: normal counting
+      uint16_t stop_tick = 0;
+
+      // case 1: normal counting
+      if (delay_ticks < start_tick) {
           stop_tick = start_tick - delay_ticks;
       }
-      else { // case 2: wraparound from 0 -> COMP0
+      // case 2: wraparound from 0 -> COMP0
+      else {
           stop_tick = cnt_max - (delay_ticks - start_tick);
       }
 
+      // do nothing until reaching the correct stop tick
       while (LETIMER_CounterGet(LETIMER0) != stop_tick);
 
 }
