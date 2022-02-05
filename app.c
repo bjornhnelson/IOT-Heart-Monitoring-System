@@ -56,10 +56,9 @@
 #include "src/irq.h"
 #include "src/oscillators.h"
 #include "src/timers.h"
+#include "src/scheduler.h"
+#include "src/i2c.h"
 #include "em_letimer.h"
-
-
-
 
 
 // See: https://docs.silabs.com/gecko-platform/latest/service/power_manager/overview
@@ -165,7 +164,7 @@ SL_WEAK void app_init(void)
       sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
   }
 
-  // new code for A2
+  init_scheduler();
   gpioInit();
   uint32_t clock_freq = init_oscillators();
   init_timer(clock_freq);
@@ -208,12 +207,19 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  // nothing to do here in A2, events are interrupt driven
+  uint8_t evt = get_next_event();
 
-  gpioLed0SetOn();
-  timerWaitUs(2500000);
-  gpioLed0SetOff();
-  timerWaitUs(2999999);
+  switch (evt) {
+      case IDLE:
+          break;
+      case EVENT_READ_TEMP:
+          LOG_INFO("Sensor read event");
+          read_temp_from_si7021();
+          break;
+      default:
+          LOG_WARN("Unknown event detected");
+          break;
+  }
 
 }
 

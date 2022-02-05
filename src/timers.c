@@ -13,8 +13,6 @@
 #include "em_letimer.h"
 
 #include "stdint.h"
-#include "src/gpio.h"
-
 
 #define USEC_PER_MSEC 1000
 #define MSEC_PER_SEC 1000
@@ -22,8 +20,6 @@
 
 uint32_t clock_freq_hz;
 uint16_t cnt_max;
-
-int ledStatus = 0;
 
 // https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/structLETIMER__Init__TypeDef.html
 static const LETIMER_Init_TypeDef letimer_settings =
@@ -63,7 +59,7 @@ void init_timer(uint32_t clock_freq) {
     LETIMER_CompareSet(LETIMER0, 0, comp0_value);
 
     // enable interrupts for doing si7021 measurements
-    //LETIMER_IntEnable(LETIMER0, LETIMER_IEN_UF);
+    LETIMER_IntEnable(LETIMER0, LETIMER_IEN_UF);
 
     // start running the timer
     LETIMER_Enable(LETIMER0, true);
@@ -76,7 +72,7 @@ void timerWaitUs(uint32_t us_wait) {
 
       if (ms_wait >= LETIMER_PERIOD_MS) {
           ms_wait = LETIMER_PERIOD_MS - 1;
-          //LOG_WARN("Requested delay exceeds supported maximum. Delay time capped to %d secs", LETIMER_PERIOD_MS);
+          //LOG_WARN("Requested delay exceeds supported maximum. Delay time capped to %d msecs", LETIMER_PERIOD_MS);
       }
 
       uint16_t delay_ticks = clock_freq_hz * ms_wait / MSEC_PER_SEC;
@@ -92,7 +88,5 @@ void timerWaitUs(uint32_t us_wait) {
       }
 
       while (LETIMER_CounterGet(LETIMER0) != stop_tick);
-
-      // LOG_DEBUG("exiting");
 
 }
