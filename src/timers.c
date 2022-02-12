@@ -18,9 +18,8 @@
 #define MSEC_PER_SEC 1000
 #define USEC_TO_SEC 1000000
 
-// global variables
-uint32_t clock_freq_hz; // frequency / prescaler
-uint16_t cnt_max; // saving COMP 0 register for use in wait function
+uint32_t clock_freq_hz;
+uint16_t timer_max_ticks;
 
 // data structure for initializing LETIMER0
 // https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/structLETIMER__Init__TypeDef.html
@@ -59,7 +58,9 @@ void init_timer(uint32_t clock_freq) {
     // counter value for entire period, 3000 ms
     // num ticks = (clock frequency / prescaler) * desired time duration
     uint32_t comp0_value = clock_freq_hz * LETIMER_PERIOD_MS / MSEC_PER_SEC;
-    cnt_max = comp0_value;
+
+    // save into global variables
+    timer_max_ticks = comp0_value;
 
     // set compare registers for timer
     LETIMER_CompareSet(LETIMER0, 0, comp0_value);
@@ -78,7 +79,7 @@ void init_timer(uint32_t clock_freq) {
  *
  * us_wait = delay duration in us
  */
-void timerWaitUs(uint32_t us_wait) {
+void timerWaitUsPolled(uint32_t us_wait) {
 
       uint16_t ms_wait = us_wait / USEC_PER_MSEC;
 
@@ -100,10 +101,51 @@ void timerWaitUs(uint32_t us_wait) {
       }
       // case 2: wraparound from 0 -> COMP0
       else {
-          stop_tick = cnt_max - (delay_ticks - start_tick);
+          stop_tick = timer_max_ticks - (delay_ticks - start_tick);
       }
 
       // do nothing until reaching the correct stop tick
       while (LETIMER_CounterGet(LETIMER0) != stop_tick);
 
 }
+
+void timerWaitUsIRQ(uint32_t us_wait) {
+
+      CORE_ATOMIC_IRQ_DISABLE();
+
+      uint16_t ms_wait = us_wait / USEC_PER_MSEC;
+
+      // range checking
+      if (ms_wait >= LETIMER_PERIOD_MS) {
+          ms_wait = LETIMER_PERIOD_MS - 1;
+          //LOG_WARN("Requested delay exceeds supported maximum. Delay time capped to %d msecs", LETIMER_PERIOD_MS);
+      }
+
+      // compute how many ticks for specified delay
+      uint16_t delay_ticks = clock_freq_hz * ms_wait / MSEC_PER_SEC;
+      uint16_t start_tick = LETIMER_CounterGet(LETIMER0);
+
+      uint16_t stop_tick = 0;
+
+      // case 1: normal counting
+      if (delay_ticks < start_tick) {
+          stop_tick = start_tick - delay_ticks;
+      }
+      // case 2: wraparound from 0 -> COMP0
+      else {
+          stop_tick = timer_max_ticks - (delay_ticks - start_tick);
+      }
+
+      // clear pending interrupts
+      LETIMER_IntClear(LETIMER0, LETIMER_IFC_COMP1);
+
+      // set COMP 1 value
+      LETIMER_CompareSet(LETIMER0, 1, stop_tick);
+
+      // enable the interrupt for COMP 1
+      LETIMER_IntEnable(LETIMER0, LETIMER_IEN_COMP1);
+
+      CORE_ATOMIC_IRQ_ENABLE();
+
+}
+

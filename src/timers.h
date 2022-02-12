@@ -10,7 +10,13 @@
 #ifndef SRC_TIMERS_H_
 #define SRC_TIMERS_H_
 
+
+// global variables
+extern uint32_t clock_freq_hz; // frequency / prescaler
+extern uint16_t timer_max_ticks; // saving COMP 0 register for use in wait function
+
 void init_timer(uint32_t clock_freq);
-void timerWaitUs(uint32_t us_wait);
+void timerWaitUsPolled(uint32_t us_wait);
+void timerWaitUsIRQ(uint32_t us_wait);
 
 #endif /* SRC_TIMERS_H_ */

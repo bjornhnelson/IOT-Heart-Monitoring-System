@@ -16,10 +16,7 @@
 static const uint8_t SI7021_ADDR = 0x40;
 
 // command id for measuring temperature in no hold master mode
-static const uint8_t READ_CMD = 0xF3;
-
-// how many tries for reading a temperature value before giving up
-#define MAX_READ_ATTEMPTS 5
+static const uint8_t MEASURE_TEMP_CMD = 0xF3;
 
 // enable logging for temperature results to be displayed in console
 #define INCLUDE_LOG_DEBUG 1
@@ -39,22 +36,24 @@ static I2CSPM_Init_TypeDef i2c_settings = {
         .i2cClhr = i2cClockHLRStandard
 };
 
-// data structure for storing i2c data and associated length
-typedef struct {
-        uint8_t  data[2]; // buffer for data
-        uint16_t len; // number of bytes in buffer
-} i2c_data;
+I2C_TransferSeq_TypeDef transfer_sequence;
 
-// initialization of data structure
-i2c_data buf;
+uint8_t cmd_data;
+uint8_t cmd_data_len;
+
+uint16_t read_data;
+uint8_t read_data_len;
 
 // calls the API's i2c setup function with i2c settings in typedef
-// handles load power management iniitalization
+// handles load power management initialization
 void init_i2c() {
+
+    // call the library setup function
     I2CSPM_Init(&i2c_settings);
+
 }
 
-// load power management deinitialization
+// load power management de-initialization
 // called at the end of a temperature reading
 void deinit_i2c() {
 
@@ -70,98 +69,65 @@ void deinit_i2c() {
     CMU_ClockEnable(cmuClock_I2C0, false);
 }
 
-/*
- * calls the API's i2c read function
- * master receives data from slave
- *
- * result = pointer to buffer for saving bytes
- * len = number of bytes to be read
- */
-
-I2C_TransferReturn_TypeDef i2c_read(uint8_t* result, uint16_t len) {
-    I2C_TransferSeq_TypeDef sequence;
-    I2C_TransferReturn_TypeDef status;
-
-    sequence.addr = SI7021_ADDR << 1;
-    sequence.flags = I2C_FLAG_READ;
-    sequence.buf[0].data = result;
-    sequence.buf[0].len = len;
-
-    status = I2CSPM_Transfer(I2C0, &sequence);
-    return status;
-}
-
-/*
- * calls the API's i2c write function
- * master sends data to the slave
- *
- * command = pointer to buffer containing bytes that will be written
- * len = number of bytes to be written
- */
-I2C_TransferReturn_TypeDef i2c_write(uint8_t* command, uint16_t len) {
-    I2C_TransferSeq_TypeDef sequence;
-    I2C_TransferReturn_TypeDef status;
-
-    sequence.addr = SI7021_ADDR << 1;
-    sequence.flags = I2C_FLAG_WRITE;
-    sequence.buf[0].data = command;
-    sequence.buf[0].len = len;
-
-    status = I2CSPM_Transfer(I2C0, &sequence);
-    return status;
-}
-
-// Performs a temperature reading on the si7021 sensor
-void read_temp_from_si7021() {
-
-    // initialization of i2c and sensor
+void i2c_send_command() {
     init_i2c();
-    gpioSi7021Enable();
 
-    // wait 80 ms for sensor to power up
-    timerWaitUs(80000);
+    // enable i2c interrupts
+    NVIC_EnableIRQ(I2C0_IRQn);
 
-    I2C_TransferReturn_TypeDef status;
-    buf.data[0] = READ_CMD;
-    buf.len = 1;
+    transfer_sequence.addr = SI7021_ADDR << 1;
+    transfer_sequence.flags = I2C_FLAG_WRITE;
 
-    // perform the write operation
-    status = i2c_write(buf.data, buf.len);
+    cmd_data = MEASURE_TEMP_CMD;
+    cmd_data_len = 1;
 
-    // 10 ms delay before reading
-    timerWaitUs(10000);
+    transfer_sequence.buf[0].data = &cmd_data;
+    transfer_sequence.buf[0].len = cmd_data_len;
 
-    uint8_t num_attempts = 1;
-    buf.len = 2;
+    I2C_TransferReturn_TypeDef transfer_status = I2C_TransferInit(I2C0, &transfer_sequence);
 
-    // try reading 5 times
-    while (num_attempts < MAX_READ_ATTEMPTS) {
-        //LOG_INFO("Attempt # %d", num_attempts);
-
-        // perform a read operation
-        status = i2c_read(buf.data, buf.len);
-
-        // read was successful
-        if (status == i2cTransferDone) {
-            uint16_t temp_data = (buf.data[0] << 8) | (buf.data[1]);
-            float temp_celcius = ((175.72 * temp_data) / 65536) - 46.85;
-            uint16_t temp_celcius_int = (uint16_t) temp_celcius;
-            LOG_INFO("Temperature: %d C", temp_celcius_int);
-            break;
-        }
-        // read returned an error
-        else {
-            process_i2c_status(status); // decode and log the error
-            timerWaitUs(10000);
-        }
-
-        num_attempts++;
+    // check for errors
+    if (transfer_status < 0) {
+        process_i2c_status(transfer_status);
     }
 
-    // deinitialization of i2c and sensor
-    gpioSi7021Disable();
-    deinit_i2c();
 
+}
+
+void i2c_receive_data() {
+
+    // enable i2c interrupts
+    NVIC_EnableIRQ(I2C0_IRQn);
+
+    transfer_sequence.addr = SI7021_ADDR << 1;
+    transfer_sequence.flags = I2C_FLAG_READ;
+
+    read_data_len = 2;
+
+    transfer_sequence.buf[0].data = (uint8_t*)(&read_data);
+    transfer_sequence.buf[0].len = read_data_len;
+
+    I2C_TransferReturn_TypeDef transfer_status = I2C_TransferInit(I2C0, &transfer_sequence);
+
+    // check for errors
+    if (transfer_status < 0) {
+        process_i2c_status(transfer_status);
+    }
+
+}
+
+void print_temperature() {
+    uint16_t temp_data = (read_data);
+    uint16_t temp_data2 = ( ((*((transfer_sequence.buf[0]).data)) << 8) | *((transfer_sequence.buf[1]).data) );
+
+    float temp_celcius = ((175.72 * temp_data) / 65536) - 46.85;
+    float temp_celcius2 = ((175.72 * temp_data2) / 65536) - 46.85;
+
+    uint16_t temp_celcius_int = (uint16_t) temp_celcius;
+    uint16_t temp_celcius_int2 = (uint16_t) temp_celcius2;
+
+
+    LOG_INFO("Temperature: %d -- %d C", temp_celcius_int, temp_celcius_int2);
 }
 
 /*
@@ -173,28 +139,28 @@ void read_temp_from_si7021() {
 void process_i2c_status(I2C_TransferReturn_TypeDef ret_value) {
     switch(ret_value) {
         case i2cTransferInProgress:
-            LOG_WARN("I2CSPM_Transfer(): IN PROGRESS");
+            LOG_WARN("I2C Status: IN PROGRESS");
             break;
         case i2cTransferDone:
-            LOG_INFO("I2CSPM_Transfer(): DONE");
+            LOG_INFO("I2C Status: DONE");
             break;
         case i2cTransferNack:
-            LOG_WARN("I2CSPM_Transfer(): NACK");
+            LOG_WARN("I2C Status): NACK");
             break;
         case i2cTransferBusErr:
-            LOG_WARN("I2CSPM_Transfer(): BUS ERR");
+            LOG_WARN("I2C Status: BUS ERR");
             break;
         case i2cTransferArbLost:
-            LOG_WARN("I2CSPM_Transfer(): ARB LOST");
+            LOG_WARN("I2C Status: ARB LOST");
             break;
         case i2cTransferUsageFault:
-            LOG_WARN("I2CSPM_Transfer(): USAGE FAULT");
+            LOG_WARN("I2C Status: USAGE FAULT");
             break;
         case i2cTransferSwFault:
-            LOG_WARN("I2CSPM_Transfer(): SW FAULT");
+            LOG_WARN("I2C Status: SW FAULT");
             break;
         default:
-            LOG_ERROR("Unknown I2CSPM_Transfer() return value");
+            LOG_ERROR("Unknown I2C return value");
             break;
 
     }

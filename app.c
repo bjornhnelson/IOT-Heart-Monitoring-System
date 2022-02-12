@@ -113,7 +113,7 @@
 //           to call one of the LOG_***() functions from.
 
 // Include logging specifically for this .c file
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
 
 
@@ -171,6 +171,7 @@ SL_WEAK void app_init(void)
 
   NVIC_ClearPendingIRQ(LETIMER0_IRQn);
   NVIC_EnableIRQ(LETIMER0_IRQn);
+  NVIC_EnableIRQ(LETIMER0_IRQn);
 
 }
 
@@ -207,19 +208,7 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  uint8_t evt = get_next_event();
-
-  switch (evt) {
-      case IDLE:
-          break;
-      case EVENT_READ_TEMP:
-          //LOG_INFO("Sensor read event");
-          read_temp_from_si7021();
-          break;
-      default:
-          LOG_WARN("Unknown event detected");
-          break;
-  }
+  scheduler_state_machine();
 
 }
 

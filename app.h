@@ -48,7 +48,7 @@
 #define APP_H
 
 // Specify energy mode: 0 - EM0, 1 - EM1, 2 - EM2, 3 - EM3
-#define LOWEST_ENERGY_MODE (SL_POWER_MANAGER_EM3)
+#define LOWEST_ENERGY_MODE (SL_POWER_MANAGER_EM0)
 
 #define LETIMER_PERIOD_MS (3000)
 

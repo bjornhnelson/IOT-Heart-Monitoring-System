@@ -10,26 +10,30 @@
 
 #include "stdint.h"
 
-// represents no events pending
-#define IDLE (0)
+typedef enum {
+    EVENT_IDLE,
+    EVENT_MEASURE_TEMP,
+    EVENT_TIMER_EXPIRED,
+    EVENT_I2C_DONE,
+    EVENT_I2C_ERROR,
+} events_t;
 
-// bit 0 assigned to temperature read event
-// bits 1-7 currently unassigned
-#define EVENT_READ_TEMP (1 << 0)
-
-// number of event statuses that can be handled simultaneously
-#define MAX_EVENTS 8
-
-// data structure to monitor status of up to  8 events
-// bit toggled to 1 -> event occurred
-static volatile uint8_t event_flags;
+typedef enum {
+    STATE_IDLE,
+    STATE_SENSOR_POWERUP,
+    STATE_I2C_WRITE,
+    STATE_INTERIM_DELAY,
+    STATE_I2C_READ,
+} states_t;
 
 void init_scheduler();
 
 void scheduler_set_event(uint8_t event);
 
-void scheduler_clear_event(uint8_t event);
+void scheduler_clear_event();
 
-uint8_t get_next_event();
+uint8_t scheduler_get_next_event();
+
+void scheduler_state_machine();
 
 #endif /* SRC_SCHEDULER_H_ */

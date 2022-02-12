@@ -15,11 +15,11 @@ void init_i2c();
 
 void deinit_i2c();
 
-I2C_TransferReturn_TypeDef i2c_read(uint8_t* result, uint16_t len);
+void i2c_send_command();
 
-I2C_TransferReturn_TypeDef i2c_write(uint8_t* command, uint16_t len);
+void i2c_receive_data();
 
-void read_temp_from_si7021();
+void print_temperature();
 
 void process_i2c_status(I2C_TransferReturn_TypeDef ret_value);
 
