@@ -165,12 +165,11 @@ SL_WEAK void app_init(void)
   }
 
   init_scheduler();
-  gpioInit();
-  uint32_t clock_freq = init_oscillators();
-  init_timer(clock_freq);
+  init_GPIO();
+  init_oscillators();
+  init_timer();
 
   NVIC_ClearPendingIRQ(LETIMER0_IRQn);
-  NVIC_EnableIRQ(LETIMER0_IRQn);
   NVIC_EnableIRQ(LETIMER0_IRQn);
 
 }

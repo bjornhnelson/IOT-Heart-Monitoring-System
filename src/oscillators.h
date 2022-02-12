@@ -12,6 +12,7 @@
 
 #define PRESCALER 4 // referenced in timers.c
 
-uint32_t init_oscillators();
+void init_oscillators();
+uint32_t get_oscillator_freq();
 
 #endif /* SRC_OSCILLATORS_H_ */

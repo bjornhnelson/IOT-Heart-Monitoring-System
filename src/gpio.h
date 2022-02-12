@@ -13,7 +13,7 @@
 #define SRC_GPIO_H_
 
 // Function prototypes
-void gpioInit();
+void init_GPIO();
 void gpioLed0SetOn();
 void gpioLed0SetOff();
 void gpioLed1SetOn();

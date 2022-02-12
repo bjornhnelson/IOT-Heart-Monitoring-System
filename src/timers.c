@@ -21,33 +21,32 @@
 uint32_t clock_freq_hz;
 uint16_t timer_max_ticks;
 
-// data structure for initializing LETIMER0
-// https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/structLETIMER__Init__TypeDef.html
-static const LETIMER_Init_TypeDef letimer_settings =
-{
-    .enable = false, // Start counting when initialization completes
-    .debugRun = true, // Counter shall keep running during debug halt
-    .comp0Top = true, // Load COMP0 register into CNT when counter underflows
-    .bufTop = false, // Load COMP1 into COMP0 when REP0 reaches 0
-    .out0Pol = 0, // Idle value for output 0
-    .out1Pol = 0, // Idle value for output 1
-    .ufoa0 = letimerUFOANone, // Underflow output 0 action
-    .ufoa1 = letimerUFOANone, // Underflow output 1 action
-    .repMode = letimerRepeatFree, // Repeat mode
-    .topValue = 0 // Top value. Counter wraps when top value matches counter value is reached
-
-};
-
 
 /*
  * initializes LETIMER0
  *
- * clock_freq = LFA freq determined in oscillator initialization
  */
-void init_timer(uint32_t clock_freq) {
+void init_timer() {
 
-    // save into global variable
-    clock_freq_hz = clock_freq / PRESCALER;
+    // data structure for initializing LETIMER0
+    // https://siliconlabs.github.io/Gecko_SDK_Doc/efm32g/html/structLETIMER__Init__TypeDef.html
+    static const LETIMER_Init_TypeDef letimer_settings =
+    {
+        .enable = false, // Start counting when initialization completes
+        .debugRun = true, // Counter shall keep running during debug halt
+        .comp0Top = true, // Load COMP0 register into CNT when counter underflows
+        .bufTop = false, // Load COMP1 into COMP0 when REP0 reaches 0
+        .out0Pol = 0, // Idle value for output 0
+        .out1Pol = 0, // Idle value for output 1
+        .ufoa0 = letimerUFOANone, // Underflow output 0 action
+        .ufoa1 = letimerUFOANone, // Underflow output 1 action
+        .repMode = letimerRepeatFree, // Repeat mode
+        .topValue = 0 // Top value. Counter wraps when top value matches counter value is reached
+
+    };
+
+    // save system clock frequency into global variable
+    clock_freq_hz = get_oscillator_freq() / PRESCALER;
 
     // initialize with settings in structure
     LETIMER_Init(LETIMER0, &letimer_settings);
@@ -56,7 +55,7 @@ void init_timer(uint32_t clock_freq) {
     while (LETIMER0->SYNCBUSY != 0);
 
     // counter value for entire period, 3000 ms
-    // num ticks = (clock frequency / prescaler) * desired time duration
+    // num ticks = clock frequency * desired time duration
     uint32_t comp0_value = clock_freq_hz * LETIMER_PERIOD_MS / MSEC_PER_SEC;
 
     // save into global variables
@@ -74,12 +73,12 @@ void init_timer(uint32_t clock_freq) {
 }
 
 /*
- * Delays for a specified number of microseconds
+ * Delays for a specified number of microseconds using polling
  * Maximum supported delay = 3 seconds
  *
  * us_wait = delay duration in us
  */
-void timerWaitUsPolled(uint32_t us_wait) {
+void timer_wait_us_polled(uint32_t us_wait) {
 
       uint16_t ms_wait = us_wait / USEC_PER_MSEC;
 
@@ -109,7 +108,13 @@ void timerWaitUsPolled(uint32_t us_wait) {
 
 }
 
-void timerWaitUsIRQ(uint32_t us_wait) {
+/*
+ * Delays for a specified number of microseconds using interrupts
+ * Maximum supported delay = 3 seconds
+ *
+ * us_wait = delay duration in us
+ */
+void timer_wait_us_IRQ(uint32_t us_wait) {
 
       CORE_ATOMIC_IRQ_DISABLE();
 

@@ -32,8 +32,6 @@ void scheduler_set_event(uint8_t event);
 
 void scheduler_clear_event();
 
-uint8_t scheduler_get_next_event();
-
 void scheduler_state_machine();
 
 #endif /* SRC_SCHEDULER_H_ */

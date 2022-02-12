@@ -13,28 +13,14 @@
 #include "sl_i2cspm.h"
 
 // i2c device address
-static const uint8_t SI7021_ADDR = 0x40;
+#define SI7021_ADDR 0x40
 
 // command id for measuring temperature in no hold master mode
-static const uint8_t MEASURE_TEMP_CMD = 0xF3;
+#define MEASURE_TEMP_CMD 0xF3
 
 // enable logging for temperature results to be displayed in console
 #define INCLUDE_LOG_DEBUG 1
 #include "log.h"
-
-// data structure for initializing i2c
-static I2CSPM_Init_TypeDef i2c_settings = {
-        .port = I2C0,
-        .sclPort = gpioPortC,
-        .sclPin = 10,
-        .sdaPort = gpioPortC,
-        .sdaPin = 11,
-        .portLocationScl = 14,
-        .portLocationSda = 16,
-        .i2cRefFreq = 0,
-        .i2cMaxFreq = I2C_FREQ_STANDARD_MAX,
-        .i2cClhr = i2cClockHLRStandard
-};
 
 I2C_TransferSeq_TypeDef transfer_sequence;
 
@@ -48,12 +34,26 @@ uint8_t read_data_len;
 // handles load power management initialization
 void init_i2c() {
 
+    // data structure for initializing i2c
+    static I2CSPM_Init_TypeDef i2c_settings = {
+            .port = I2C0,
+            .sclPort = gpioPortC,
+            .sclPin = 10,
+            .sdaPort = gpioPortC,
+            .sdaPin = 11,
+            .portLocationScl = 14,
+            .portLocationSda = 16,
+            .i2cRefFreq = 0,
+            .i2cMaxFreq = I2C_FREQ_STANDARD_MAX,
+            .i2cClhr = i2cClockHLRStandard
+    };
+
     // call the library setup function
     I2CSPM_Init(&i2c_settings);
 
 }
 
-// load power management de-initialization
+// load power management deinitialization
 // called at the end of a temperature reading
 void deinit_i2c() {
 
@@ -70,7 +70,6 @@ void deinit_i2c() {
 }
 
 void i2c_send_command() {
-    init_i2c();
 
     // enable i2c interrupts
     NVIC_EnableIRQ(I2C0_IRQn);
@@ -131,10 +130,10 @@ void print_temperature() {
 }
 
 /*
- * decodes the return value from a I2CSPM_Transfer() call
+ * decodes the return value from a I2C_Transfer() call
  * Logs relevant info to the console
  *
- * ret_value = returned value from I2CSPM_Transfer()
+ * ret_value = returned value from I2C_Transfer()
  */
 void process_i2c_status(I2C_TransferReturn_TypeDef ret_value) {
     switch(ret_value) {
@@ -160,7 +159,7 @@ void process_i2c_status(I2C_TransferReturn_TypeDef ret_value) {
             LOG_WARN("I2C Status: SW FAULT");
             break;
         default:
-            LOG_ERROR("Unknown I2C return value");
+            LOG_ERROR("Unknown I2C Status");
             break;
 
     }
