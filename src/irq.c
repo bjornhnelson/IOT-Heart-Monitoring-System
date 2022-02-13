@@ -16,6 +16,10 @@
 #include "em_letimer.h"
 #include "em_i2c.h"
 
+// enable logging
+#define INCLUDE_LOG_DEBUG 1
+#include "log.h"
+
 // global variables
 uint32_t num_underflows = 0;
 
@@ -72,15 +76,18 @@ void count_underflows() {
     num_underflows++;
 }
 
+/*
+ * Calculates the amount of time since system startup
+ *
+ * returns: time value in milliseconds
+ */
 uint32_t letimerMilliseconds() {
 
-    // map freq to period
-    /*uint16_t ticks_per_ms = timer_max_ticks / LETIMER_PERIOD_MS;
+    uint32_t timer_cur_ticks = LETIMER_CounterGet(LETIMER0);
+    uint32_t timer_elapsed_ticks = timer_max_ticks - timer_cur_ticks;
+    uint32_t timer_elapsed_ms = timer_elapsed_ticks * LETIMER_PERIOD_MS / timer_max_ticks;
 
-    uint32_t cur_period_ms = (timer_max_ticks - LETIMER_CounterGet(LETIMER0)) / ticks_per_ms;*/
-
-    uint32_t result = num_underflows * LETIMER_PERIOD_MS;
-    //uint32_t result = (num_underflows * LETIMER_PERIOD_MS) + cur_period_ms;
+    uint32_t result = (num_underflows * LETIMER_PERIOD_MS) + timer_elapsed_ms;
 
     return result;
 }

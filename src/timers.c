@@ -18,8 +18,9 @@
 #define MSEC_PER_SEC 1000
 #define USEC_TO_SEC 1000000
 
-uint32_t clock_freq_hz;
-uint16_t timer_max_ticks;
+// global variables
+uint32_t clock_freq_hz; // system clock frequency = oscillator frequency / prescaler
+uint16_t timer_max_ticks; // saving COMP 0 register for use in wait function
 
 
 /*

@@ -11,9 +11,8 @@
 #define SRC_TIMERS_H_
 
 
-// global variables
-extern uint32_t clock_freq_hz; // frequency / prescaler
-extern uint16_t timer_max_ticks; // saving COMP 0 register for use in wait function
+extern uint32_t clock_freq_hz;
+extern uint16_t timer_max_ticks;
 
 void init_timer();
 void timer_wait_us_polled(uint32_t us_wait);
