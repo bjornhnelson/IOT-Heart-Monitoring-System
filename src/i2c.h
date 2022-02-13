@@ -19,7 +19,7 @@ void i2c_send_command();
 
 void i2c_receive_data();
 
-void print_temperature();
+void print_temp();
 
 void process_i2c_status(I2C_TransferReturn_TypeDef ret_value);
 

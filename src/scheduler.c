@@ -111,7 +111,7 @@ void scheduler_state_machine() {
                 // EM <= 1 required during I2C transfers
                 sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
 
-                // save the temperature measurement in i2c.c variable
+                // saves the temperature measurement in i2c.c variable
                 i2c_receive_data();
             }
         break;
@@ -129,7 +129,7 @@ void scheduler_state_machine() {
                 NVIC_DisableIRQ(I2C0_IRQn);
 
                 // log the temperature value
-                print_temperature();
+                print_temp();
 
                 // deinitialize i2c
                 deinit_i2c();

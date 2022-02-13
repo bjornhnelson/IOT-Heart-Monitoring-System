@@ -24,9 +24,8 @@
 uint32_t num_underflows = 0;
 
 
+// I2C interrupt service routine
 void I2C0_IRQHandler() {
-    CORE_ATOMIC_IRQ_DISABLE();
-
     I2C_TransferReturn_TypeDef transfer_status = I2C_Transfer(I2C0);
 
     if (transfer_status == i2cTransferDone) {
@@ -37,12 +36,10 @@ void I2C0_IRQHandler() {
         process_i2c_status(transfer_status);
     }
 
-    CORE_ATOMIC_IRQ_ENABLE();
 }
 
+// LE Timer interrupt service routine
 void LETIMER0_IRQHandler() {
-
-  CORE_ATOMIC_IRQ_DISABLE();
 
   // get enabled and pending LETIMER interrupt flags
   uint32_t flags = LETIMER_IntGetEnabled(LETIMER0);
@@ -66,8 +63,6 @@ void LETIMER0_IRQHandler() {
       LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1);
       scheduler_set_event(EVENT_TIMER_EXPIRED);
   }
-
-  CORE_ATOMIC_IRQ_ENABLE();
 
 }
 

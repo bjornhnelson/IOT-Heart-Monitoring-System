@@ -24,10 +24,10 @@
 
 I2C_TransferSeq_TypeDef transfer_sequence;
 
-uint8_t cmd_data;
+uint8_t cmd_data[1];
 uint8_t cmd_data_len;
 
-uint16_t read_data;
+uint8_t read_data[2];
 uint8_t read_data_len;
 
 // calls the API's i2c setup function with i2c settings in typedef
@@ -69,20 +69,24 @@ void deinit_i2c() {
     CMU_ClockEnable(cmuClock_I2C0, false);
 }
 
+// performs an i2c write, to request a temperature measurement
 void i2c_send_command() {
 
     // enable i2c interrupts
     NVIC_EnableIRQ(I2C0_IRQn);
 
+    // set i2c address and mode
     transfer_sequence.addr = SI7021_ADDR << 1;
     transfer_sequence.flags = I2C_FLAG_WRITE;
 
-    cmd_data = MEASURE_TEMP_CMD;
-    cmd_data_len = 1;
+    cmd_data[0] = MEASURE_TEMP_CMD; // command id
+    cmd_data_len = 1; // transmit 1 byte
 
-    transfer_sequence.buf[0].data = &cmd_data;
+    // only buf[0] used in write mode
+    transfer_sequence.buf[0].data = cmd_data;
     transfer_sequence.buf[0].len = cmd_data_len;
 
+    // start the transfer
     I2C_TransferReturn_TypeDef transfer_status = I2C_TransferInit(I2C0, &transfer_sequence);
 
     // check for errors
@@ -93,19 +97,23 @@ void i2c_send_command() {
 
 }
 
+// performs an i2c read, temperature measurement will be saved into read_data
 void i2c_receive_data() {
 
     // enable i2c interrupts
     NVIC_EnableIRQ(I2C0_IRQn);
 
+    // set i2c address and mode
     transfer_sequence.addr = SI7021_ADDR << 1;
     transfer_sequence.flags = I2C_FLAG_READ;
 
-    read_data_len = 2;
+    read_data_len = 2; // receive 2 bytes
 
-    transfer_sequence.buf[0].data = (uint8_t*)(&read_data);
+    // only buf[0] used in read mode
+    transfer_sequence.buf[0].data = read_data;
     transfer_sequence.buf[0].len = read_data_len;
 
+    // start the transfer
     I2C_TransferReturn_TypeDef transfer_status = I2C_TransferInit(I2C0, &transfer_sequence);
 
     // check for errors
@@ -115,18 +123,13 @@ void i2c_receive_data() {
 
 }
 
-void print_temperature() {
-    uint16_t temp_data = (read_data);
-    uint16_t temp_data2 = ( ((*((transfer_sequence.buf[0]).data)) << 8) | *((transfer_sequence.buf[1]).data) );
-
+// logs the most recently saved temperature measurement
+void print_temp() {
+    uint16_t temp_data = ((read_data[0] << 8) | read_data[1]);
     float temp_celcius = ((175.72 * temp_data) / 65536) - 46.85;
-    float temp_celcius2 = ((175.72 * temp_data2) / 65536) - 46.85;
-
     uint16_t temp_celcius_int = (uint16_t) temp_celcius;
-    uint16_t temp_celcius_int2 = (uint16_t) temp_celcius2;
 
-
-    LOG_INFO("Temperature: %d -- %d C", temp_celcius_int, temp_celcius_int2);
+    LOG_INFO("Temperature: %d C", temp_celcius_int);
 }
 
 /*
