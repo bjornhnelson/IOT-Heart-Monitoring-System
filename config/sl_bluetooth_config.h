@@ -36,6 +36,12 @@
 #define SL_BT_CONFIG_MAX_PERIODIC_ADVERTISING_SYNC (0)
 #endif
 
+#ifdef SL_CATALOG_BLUETOOTH_FEATURE_L2CAP_PRESENT
+#include "sl_bluetooth_l2cap_config.h"
+#else
+#define SL_BT_CONFIG_USER_L2CAP_COC_CHANNELS (0)
+#endif
+
 // <o SL_BT_CONFIG_BUFFER_SIZE> Buffer memory size for Bluetooth stack
 // <i> Default: 3150
 // <i> Define buffer memory size for running Bluetooth stack and buffering data over Bluetooth connections,
@@ -141,6 +147,7 @@ void sli_bt_rtos_stack_callback();
     .bluetooth.max_connections = SL_BT_CONFIG_MAX_CONNECTIONS_SUM,             \
     .bluetooth.max_advertisers = SL_BT_CONFIG_MAX_ADVERTISERS,                 \
     .bluetooth.max_periodic_sync = SL_BT_CONFIG_MAX_PERIODIC_ADVERTISING_SYNC, \
+    .bluetooth.max_l2cap_coc     = SL_BT_CONFIG_USER_L2CAP_COC_CHANNELS,       \
     .bluetooth.max_buffer_memory = SL_BT_CONFIG_BUFFER_SIZE,                   \
     .scheduler_callback = SL_BT_CONFIG_LL_CALLBACK,                            \
     .stack_schedule_callback = SL_BT_CONFIG_STACK_CALLBACK,                    \
