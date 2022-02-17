@@ -10,6 +10,7 @@
 
 #include "stdint.h"
 #include "sl_bgapi.h"
+#include "sl_bt_api.h"
 
 #define UINT8_TO_BITSTREAM(p, n) { *(p)++ = (uint8_t)(n); }
 
@@ -34,5 +35,10 @@ typedef struct {
 
 
 } ble_data_struct_t;
+
+
+ble_data_struct_t* get_ble_data();
+
+void handle_ble_event(sl_bt_msg_t* event);
 
 #endif /* SRC_BLE_H_ */
