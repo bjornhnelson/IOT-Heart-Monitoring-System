@@ -33,6 +33,7 @@ typedef struct {
     bool connectionOpen;
     bool indicationInFlight;
     bool connectionHandle;
+    bool tempIndicationsEnabled;
 
     // values unique for client
 
