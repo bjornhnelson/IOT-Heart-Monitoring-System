@@ -9,6 +9,7 @@
 #define SRC_BLE_H_
 
 #include "stdint.h"
+#include "stdbool.h"
 #include "sl_bgapi.h"
 #include "sl_bt_api.h"
 
@@ -28,8 +29,10 @@ typedef struct {
     bd_addr myAddress;
 
     // values unique for server
-    // The advertising set handle allocated from Bluetooth stack.
-    uint8_t advertisingSetHandle;
+    uint8_t advertisingSetHandle; // The advertising set handle allocated from Bluetooth stack.
+    bool connectionOpen;
+    bool indicationInFlight;
+    bool connectionHandle;
 
     // values unique for client
 
@@ -37,7 +40,7 @@ typedef struct {
 } ble_data_struct_t;
 
 
-ble_data_struct_t* get_ble_data();
+ble_data_struct_t* get_ble_data_ptr();
 
 void handle_ble_event(sl_bt_msg_t* event);
 
