@@ -7,6 +7,7 @@
 
 #include "ble.h"
 #include "log.h"
+#include "i2c.h"
 #include "gatt_db.h"
 
 
@@ -19,6 +20,57 @@ ble_data_struct_t* get_ble_data_ptr() {
 }
 
 sl_status_t status;
+
+
+// called by state machine to send temperature to client
+void ble_transmit_temp() {
+
+    uint8_t temperature_buffer[5]; // why 5?
+    uint8_t* ptr = temperature_buffer;
+
+
+    uint8_t flags = 0x00;
+    uint16_t temperature_in_c = get_temp();
+
+    // convert into IEEE-11073 32-bit floating point value
+    uint32_t temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
+
+    // put flag in the temperature buffer
+    UINT8_TO_BITSTREAM(ptr, flags);
+
+    // put temperature value in the temperature_buffer
+    UINT32_TO_BITSTREAM(ptr, temperature_flt);
+
+    // write value to GATT database
+    status = sl_bt_gatt_server_write_attribute_value(
+            gattdb_temperature_measurement, // characteristic from gatt_db.h
+            0, // offset
+            4, // length
+            &temperature_in_c // pointer to value
+            );
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_gatt_server_write_attribute_value");
+    }
+
+    // check if conditions are correct to send an indication
+    if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled && !(ble_data.indicationInFlight)) {
+
+        status = sl_bt_gatt_server_send_indication(
+                ble_data.connectionHandle,
+                gattdb_temperature_measurement, // characteristic from gatt_db.h
+                5, // value length
+                &temperature_buffer[0] // value
+                );
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_gatt_server_send_indication");
+        }
+        else {
+            ble_data.indicationInFlight = true;
+        }
+    }
+}
 
 // This event indicates the device has started and the radio is ready
 void ble_server_boot_event() {
@@ -119,43 +171,10 @@ void ble_server_connection_parameters_event() {
 
 }
 
-void ble_server_external_signal_event(sl_bt_msg_t* evt) {
+void ble_server_external_signal_event() {
     LOG_INFO("EXTERNAL SIGNAL EVENT");
 
-    uint8_t temperature_buffer[5]; // why 5?
-    uint8_t* ptr = temperature_buffer;
-
-    // remove later, get value from i2c code global var
-    int temperature_in_c = 25;
-
-    uint32_t temperature_flt;
-
-    temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
-
-    // convert temperature to bitstream and place it in the temperature_buffer
-    UINT32_TO_BITSTREAM(ptr, temperature_flt);
-
-    uint32_t event_value = 2; // TODO: match with sl_bt_external_signal(eventValue)
-    if (evt->data.evt_system_external_signal.extsignals == event_value) {
-
-        // conditions are correct to send an indication
-        if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled && !(ble_data.indicationInFlight)) {
-
-            status = sl_bt_gatt_server_send_indication(
-                    ble_data.connectionHandle,
-                    gattdb_temperature_measurement, // characteristic from gatt_db.h
-                    5, // value length
-                    &temperature_buffer[0] // value
-                    );
-
-            if (status != SL_STATUS_OK) {
-                LOG_ERROR("sl_bt_gatt_server_send_indication");
-            }
-            else {
-                ble_data.indicationInFlight = true;
-            }
-        }
-    }
+    // handled in temperature_state_machine(), nothing to do here
 
 }
 
@@ -216,8 +235,9 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_connection_parameters_event();
             break;
 
+        // doesn't care about these events, state machine handles it
         case sl_bt_evt_system_external_signal_id:
-            ble_server_external_signal_event(evt);
+            ble_server_external_signal_event();
             break;
 
         // events just for servers
@@ -230,7 +250,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             break;
 
         // events just for clients
-
         // none right now
 
     }

@@ -29,7 +29,7 @@ void I2C0_IRQHandler() {
     I2C_TransferReturn_TypeDef transfer_status = I2C_Transfer(I2C0);
 
     if (transfer_status == i2cTransferDone) {
-        scheduler_set_event(EVENT_I2C_DONE);
+        scheduler_set_event_I2C();
     }
 
     if (transfer_status < 0) {
@@ -54,14 +54,14 @@ void LETIMER0_IRQHandler() {
       count_underflows();
 
       // tell scheduler to request a temperature measurement
-      scheduler_set_event(EVENT_MEASURE_TEMP);
+      scheduler_set_event_UF();
 
   }
 
   // check if CNT == COMP1 was source of interrupt
   if (flags & LETIMER_IF_COMP1) {
       LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1);
-      scheduler_set_event(EVENT_TIMER_EXPIRED);
+      scheduler_set_event_COMP1();
   }
 
 }

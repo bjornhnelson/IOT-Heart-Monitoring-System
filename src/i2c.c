@@ -124,12 +124,14 @@ void i2c_receive_data() {
 }
 
 // logs the most recently saved temperature measurement
-void print_temp() {
+uint16_t get_temp() {
     uint16_t temp_data = ((read_data[0] << 8) | read_data[1]);
     float temp_celcius = ((175.72 * temp_data) / 65536) - 46.85;
     uint16_t temp_celcius_int = (uint16_t) temp_celcius;
 
     LOG_INFO("Temperature: %d C", temp_celcius_int);
+
+    return temp_celcius_int;
 }
 
 /*

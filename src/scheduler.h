@@ -9,6 +9,7 @@
 #define SRC_SCHEDULER_H_
 
 #include "stdint.h"
+#include "ble.h"
 
 typedef enum {
     EVENT_IDLE,
@@ -30,8 +31,14 @@ void init_scheduler();
 
 void scheduler_set_event(uint8_t event);
 
+void scheduler_set_event_UF();
+
+void scheduler_set_event_COMP1();
+
+void scheduler_set_event_I2C();
+
 void scheduler_clear_event();
 
-void scheduler_state_machine();
+void temperature_state_machine(sl_bt_msg_t* evt);
 
 #endif /* SRC_SCHEDULER_H_ */

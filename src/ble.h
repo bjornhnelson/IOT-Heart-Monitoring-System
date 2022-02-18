@@ -43,6 +43,22 @@ typedef struct {
 
 ble_data_struct_t* get_ble_data_ptr();
 
+void ble_transmit_temp();
+
+void ble_server_boot_event();
+
+void ble_server_connection_opened_event(sl_bt_msg_t* evt);
+
+void ble_server_connection_closed_event();
+
+void ble_server_connection_parameters_event();
+
+void ble_server_external_signal_event();
+
+void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
+
+void ble_server_indication_timeout_event();
+
 void handle_ble_event(sl_bt_msg_t* event);
 
 #endif /* SRC_BLE_H_ */

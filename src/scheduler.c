@@ -10,6 +10,7 @@
 #include "i2c.h"
 #include "gpio.h"
 #include "timers.h"
+#include "ble.h"
 
 #define INCLUDE_LOG_DEBUG 1
 #include "src/log.h"
@@ -39,6 +40,27 @@ void scheduler_set_event(uint8_t event) {
     CORE_ATOMIC_IRQ_ENABLE();
 }
 
+void scheduler_set_event_UF() {
+    //CORE_DECLARE_IRQ_STATE;
+    CORE_ATOMIC_IRQ_DISABLE();
+    sl_bt_external_signal(EVENT_MEASURE_TEMP);
+    CORE_ATOMIC_IRQ_ENABLE();
+}
+
+void scheduler_set_event_COMP1() {
+    //CORE_DECLARE_IRQ_STATE;
+    CORE_ATOMIC_IRQ_DISABLE();
+    sl_bt_external_signal(EVENT_TIMER_EXPIRED);
+    CORE_ATOMIC_IRQ_ENABLE();
+}
+
+void scheduler_set_event_I2C() {
+    //CORE_DECLARE_IRQ_STATE;
+    CORE_ATOMIC_IRQ_DISABLE();
+    sl_bt_external_signal(EVENT_I2C_DONE);
+    CORE_ATOMIC_IRQ_ENABLE();
+}
+
 // routine to clear a scheduler event, not currently used
 void scheduler_clear_event() {
     CORE_ATOMIC_IRQ_DISABLE();
@@ -47,17 +69,25 @@ void scheduler_clear_event() {
 }
 
 // processing logic for handling states and events
-void scheduler_state_machine() {
+void temperature_state_machine(sl_bt_msg_t* evt) {
 
     // initially assume system will remain in current state
     uint8_t next_state = cur_state;
+
+    //ble_data_struct_t* ble_data = get_ble_data_ptr();
+
+    // nothing to do if event is not an external signal
+    if (SL_BT_MSG_ID(evt->header) != sl_bt_evt_system_external_signal_id)
+        return;
+
+    uint32_t my_event = evt->data.evt_system_external_signal.extsignals;
 
     switch (cur_state) {
 
         case STATE_IDLE:
 
             // when underflow interrupt occurs
-            if (cur_event == EVENT_MEASURE_TEMP) {
+            if (my_event == EVENT_MEASURE_TEMP) {
                 next_state = STATE_SENSOR_POWERUP;
 
                 // initialize i2c
@@ -74,7 +104,7 @@ void scheduler_state_machine() {
         case STATE_SENSOR_POWERUP:
 
             // when COMP 1 interrupt occurs
-            if (cur_event == EVENT_TIMER_EXPIRED) {
+            if (my_event == EVENT_TIMER_EXPIRED) {
                 next_state = STATE_I2C_WRITE;
 
                 // EM <= 1 required during I2C transfers
@@ -88,7 +118,7 @@ void scheduler_state_machine() {
         case STATE_I2C_WRITE:
 
             // when I2C interrupt occurs
-            if (cur_event == EVENT_I2C_DONE) {
+            if (my_event == EVENT_I2C_DONE) {
                 next_state = STATE_INTERIM_DELAY;
 
                 // I2C transfer over, EM <= 1 no longer required
@@ -97,15 +127,15 @@ void scheduler_state_machine() {
                 // disable i2c interrupts
                 NVIC_DisableIRQ(I2C0_IRQn);
 
-                // 10 ms delay between write and read
-                timer_wait_us_IRQ(10000);
+                // 10.8 ms delay between write and read
+                timer_wait_us_IRQ(10800);
             }
         break;
 
         case STATE_INTERIM_DELAY:
 
             // when COMP1 interrupt occurs
-            if (cur_event == EVENT_TIMER_EXPIRED) {
+            if (my_event == EVENT_TIMER_EXPIRED) {
                 next_state = STATE_I2C_READ;
 
                 // EM <= 1 required during I2C transfers
@@ -119,7 +149,7 @@ void scheduler_state_machine() {
         case STATE_I2C_READ:
 
             // when i2c interrupt occurs
-            if (cur_event == EVENT_I2C_DONE) {
+            if (my_event == EVENT_I2C_DONE) {
                 next_state = STATE_IDLE;
 
                 // I2C transfer over, EM <= 1 no longer required
@@ -128,8 +158,8 @@ void scheduler_state_machine() {
                 // disable i2c interrupts
                 NVIC_DisableIRQ(I2C0_IRQn);
 
-                // log the temperature value
-                print_temp();
+                // send the temperature value
+                ble_transmit_temp();
 
                 // deinitialize i2c
                 deinit_i2c();
