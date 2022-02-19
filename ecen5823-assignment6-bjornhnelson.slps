@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="ASCII"?>
 <model:MDescriptors xmlns:model="http://www.silabs.com/ss/Studio.ecore">
-  <descriptors name="ecen5823-assignment5-bjornhnelson">
+  <descriptors name="ecen5823-assignment6-bjornhnelson">
     <properties key="projectCommon.sdkId" value="com.silabs.sdk.stack.super:3.2.3._1914541082"/>
-    <properties key="universalConfig.generationDirectory" value="/Users/bjornnelson/SimplicityStudio/v5_workspace/ecen5823-assignment5-bjornhnelson"/>
+    <properties key="universalConfig.generationDirectory" value="/Users/bjornnelson/SimplicityStudio/v5_workspace/ecen5823-assignment6-bjornhnelson"/>
     <properties key="universalConfig.toolchainCompatibility" value="iar gcc"/>
     <properties key="projectCommon.boardIds" value="brd4104a:0.0.0.A00 brd4001a:0.0.0.A01"/>
     <properties key="projectCommon.partId" value="mcu.arm.efr32.bg13.efr32bg13p632f512gm48"/>
