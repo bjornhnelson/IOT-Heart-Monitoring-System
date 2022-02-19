@@ -8,7 +8,7 @@ See [Mastering Markdown](https://guides.github.com/features/mastering-markdown/)
 1. Provide screen shot verifying the Advertising period matches the values required for the assignment.
    Answer: 249.60 ms
    <br>Screenshot:  
-   ![advertising_period](screenshots/a5/advertising_period.png)  
+   ![advertising_period](screenshots/a5/ble_advertising_period.png)  
 
 2. What is the average current between advertisements?
    Answer: 2.57 uA
