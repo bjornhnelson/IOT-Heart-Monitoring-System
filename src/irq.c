@@ -17,7 +17,7 @@
 #include "em_i2c.h"
 
 // enable logging
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 // global variables

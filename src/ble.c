@@ -6,7 +6,6 @@
  */
 
 #include "ble.h"
-#include "log.h"
 #include "i2c.h"
 #include "gatt_db.h"
 
@@ -175,11 +174,14 @@ void ble_server_connection_closed_event() {
 }
 
 // Informational: triggered whenever the connection parameters are changed and at any time a connection is established
-void ble_server_connection_parameters_event() {
-    LOG_INFO("CONNECTION PARAMETERS CHANGED");
+void ble_server_connection_parameters_event(sl_bt_msg_t* evt) {
+    //LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
-    // log interval, latency, and timeout values
-    LOG_INFO("max interval = %d, min interval = %d, latency = %d, timeout = %d", ble_data.min_interval, ble_data.max_interval, ble_data.latency, ble_data.timeout);
+    // log interval, latency, and timeout values from **client**
+    /*LOG_INFO("interval = %d, latency = %d, timeout = %d",
+             evt->data.evt_connection_parameters.interval,
+             evt->data.evt_connection_parameters.latency,
+             evt->data.evt_connection_parameters.timeout);*/
 
 }
 
@@ -253,7 +255,7 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             break;
 
         case sl_bt_evt_connection_parameters_id:
-            ble_server_connection_parameters_event();
+            ble_server_connection_parameters_event(evt);
             break;
 
         case sl_bt_evt_system_external_signal_id:

@@ -55,7 +55,7 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt);
 
 void ble_server_connection_closed_event();
 
-void ble_server_connection_parameters_event();
+void ble_server_connection_parameters_event(sl_bt_msg_t* evt);
 
 void ble_server_external_signal_event();
 

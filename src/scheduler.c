@@ -15,7 +15,7 @@
 #include "em_letimer.h"
 
 //#define INCLUDE_LOG_DEBUG 1
-#include "src/log.h"
+#include "log.h"
 
 // status variable for the current state of the system
 static states_t cur_state;
