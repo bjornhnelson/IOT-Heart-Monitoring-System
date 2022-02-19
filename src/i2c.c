@@ -19,7 +19,7 @@
 #define MEASURE_TEMP_CMD 0xF3
 
 // enable logging for temperature results to be displayed in console
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 I2C_TransferSeq_TypeDef transfer_sequence;
@@ -123,13 +123,17 @@ void i2c_receive_data() {
 
 }
 
-// logs the most recently saved temperature measurement
+/*
+ * computes the most recently saved temperature measurement
+ *
+ * returns: temperature value in degrees C
+ */
 uint16_t get_temp() {
     uint16_t temp_data = ((read_data[0] << 8) | read_data[1]);
     float temp_celcius = ((175.72 * temp_data) / 65536) - 46.85;
     uint16_t temp_celcius_int = (uint16_t) temp_celcius;
 
-    LOG_INFO("Temperature: %d C", temp_celcius_int);
+    //LOG_INFO("Temperature: %d C", temp_celcius_int);
 
     return temp_celcius_int;
 }

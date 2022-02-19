@@ -10,17 +10,18 @@
 #include "i2c.h"
 #include "gatt_db.h"
 
+// enable logging for errors
+#define INCLUDE_LOG_DEBUG 1
+#include "log.h"
 
-// BLE private data
-ble_data_struct_t ble_data;
+sl_status_t status; // return variable for various api calls
+
+ble_data_struct_t ble_data; // // BLE private data
 
 // provides access to bluetooth data structure for other .c files
 ble_data_struct_t* get_ble_data_ptr() {
     return (&ble_data);
 }
-
-sl_status_t status;
-
 
 // called by state machine to send temperature to client
 void ble_transmit_temp() {
@@ -28,9 +29,8 @@ void ble_transmit_temp() {
     uint8_t temperature_buffer[5]; // why 5?
     uint8_t* ptr = temperature_buffer;
 
-
     uint8_t flags = 0x00;
-    uint16_t temperature_in_c = get_temp();
+    uint8_t temperature_in_c = get_temp();
 
     // convert into IEEE-11073 32-bit floating point value
     uint32_t temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
@@ -74,7 +74,7 @@ void ble_transmit_temp() {
 
 // This event indicates the device has started and the radio is ready
 void ble_server_boot_event() {
-    LOG_INFO("SYSTEM BOOT");
+    //LOG_INFO("SYSTEM BOOT");
 
     uint8_t myAddressType;
 
@@ -113,10 +113,13 @@ void ble_server_boot_event() {
 
 }
 
-
-// This event indicates that a new connection was opened
+/*
+ * This event indicates that a new connection was opened
+ *
+ * evt = event that occurred
+ */
 void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
-    LOG_INFO("CONNECTION OPENED");
+    //LOG_INFO("CONNECTION OPENED");
 
     // update flags and save data
     ble_data.connectionOpen = true;
@@ -130,17 +133,25 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
         LOG_ERROR("sl_bt_advertiser_stop");
     }
 
-    uint16_t min_interval = 60; // Value = Time in ms / 1.25 ms = 75 / 1.25 = 60
-    uint16_t max_interval = 60; // same math
-    uint16_t latency = 3; // how many connection intervals the slave can skip - off air for up to 300 ms
+    ble_data.min_interval = 60; // Value = Time in ms / 1.25 ms = 75 / 1.25 = 60
+    ble_data.max_interval = 60; // same math
+    ble_data.latency = 3; // how many connection intervals the slave can skip - off air for up to 300 ms
+
     // value greater than (1 + slave latency) * (connection_interval * 2) = (1 + 3) * (75 * 2) = 4 * 150 = 600 ms
-    // Value = Time / 10 ms = 600 / 10 = 60 -> use 80?
-    uint16_t timeout = 80;
+    // Value = Time / 10 ms = 600 / 10 = 60 -> use 80
+    ble_data.timeout = 80;
+
     uint16_t min_ce_length = 0; // default
     uint16_t max_ce_length = 0xffff; // no limitation
 
     // Send a request with a set of parameters to the master
-    status = sl_bt_connection_set_parameters(ble_data.connectionHandle, min_interval, max_interval, latency, timeout, min_ce_length, max_ce_length);
+    status = sl_bt_connection_set_parameters(ble_data.connectionHandle,
+                                             ble_data.min_interval,
+                                             ble_data.max_interval,
+                                             ble_data.latency,
+                                             ble_data.timeout,
+                                             min_ce_length,
+                                             max_ce_length);
 
     if (status != SL_STATUS_OK) {
         LOG_ERROR("sl_bt_connection_set_parameters");
@@ -150,7 +161,7 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
 
 // This event indicates that a connection was closed
 void ble_server_connection_closed_event() {
-    LOG_INFO("CONNECTION CLOSED");
+    //LOG_INFO("CONNECTION CLOSED");
 
     ble_data.connectionOpen = false;
 
@@ -167,14 +178,16 @@ void ble_server_connection_closed_event() {
 void ble_server_connection_parameters_event() {
     LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
-    // TODO: more logging
+    // log interval, latency, and timeout values
+    LOG_INFO("max interval = %d, min interval = %d, latency = %d, timeout = %d", ble_data.min_interval, ble_data.max_interval, ble_data.latency, ble_data.timeout);
 
 }
 
+// handles external events
 void ble_server_external_signal_event() {
-    LOG_INFO("EXTERNAL SIGNAL EVENT");
+    //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
-    // handled in temperature_state_machine(), nothing to do here
+    // nothing to do here, external events handled in temperature_state_machine()
 
 }
 
@@ -182,9 +195,11 @@ void ble_server_external_signal_event() {
  * Handles 2 cases
  * 1. local CCCD value changed
  * 2. confirmation that indication was received
+ *
+ * evt = event that occurred
  */
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
-    LOG_INFO("CHARACTERISTIC STATUS EVENT");
+    //LOG_INFO("CHARACTERISTIC STATUS EVENT");
 
     uint16_t characteristic = evt->data.evt_gatt_server_characteristic_status.characteristic;
     uint8_t status_flags = evt->data.evt_gatt_server_characteristic_status.status_flags;
@@ -208,12 +223,18 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
 
 }
 
+// Possible event from never receiving confirmation for previously transmitted indication
 void ble_server_indication_timeout_event() {
-    LOG_INFO("INDICATION TIMEOUT OCCURRED");
+    //LOG_INFO("INDICATION TIMEOUT OCCURRED");
 
     ble_data.indicationInFlight = false;
 }
 
+/*
+ * event handler for various bluetooth events
+ *
+ * evt = event that occurred
+ */
 void handle_ble_event(sl_bt_msg_t* evt) {
 
     switch(SL_BT_MSG_ID(evt->header)) {
@@ -235,10 +256,10 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_connection_parameters_event();
             break;
 
-        // doesn't care about these events, state machine handles it
         case sl_bt_evt_system_external_signal_id:
             ble_server_external_signal_event();
             break;
+
 
         // events just for servers
         case sl_bt_evt_gatt_server_characteristic_status_id:
@@ -248,6 +269,7 @@ void handle_ble_event(sl_bt_msg_t* evt) {
         case sl_bt_evt_gatt_server_indication_timeout_id:
             ble_server_indication_timeout_event();
             break;
+
 
         // events just for clients
         // none right now

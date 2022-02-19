@@ -34,6 +34,10 @@ typedef struct {
     bool indicationInFlight;
     bool connectionHandle;
     bool tempIndicationsEnabled;
+    uint16_t min_interval;
+    uint16_t max_interval;
+    uint16_t latency;
+    uint16_t timeout;
 
     // values unique for client
 

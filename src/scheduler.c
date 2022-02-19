@@ -12,12 +12,10 @@
 #include "timers.h"
 #include "ble.h"
 
-#define INCLUDE_LOG_DEBUG 1
-#include "src/log.h"
+#include "em_letimer.h"
 
-// status variable for most recent event that occurred
-// events are set by the IRQs
-static events_t cur_event;
+//#define INCLUDE_LOG_DEBUG 1
+#include "src/log.h"
 
 // status variable for the current state of the system
 static states_t cur_state;
@@ -25,47 +23,58 @@ static states_t cur_state;
 // resets the data structures at initialization
 void init_scheduler() {
     cur_state = STATE_IDLE;
-    cur_event = EVENT_IDLE;
     //LOG_INFO("Scheduler started");
 }
 
-/*
- * routine to set a scheduler event, called by IRQs
- *
- * event = value to set global status variable
- */
-void scheduler_set_event(uint8_t event) {
-    CORE_ATOMIC_IRQ_DISABLE();
-    cur_event = event;
-    CORE_ATOMIC_IRQ_ENABLE();
-}
-
+// signals to bluetooth stack that external event occurred (3 second timer elapsed)
 void scheduler_set_event_UF() {
-    //CORE_DECLARE_IRQ_STATE;
-    CORE_ATOMIC_IRQ_DISABLE();
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
     sl_bt_external_signal(EVENT_MEASURE_TEMP);
-    CORE_ATOMIC_IRQ_ENABLE();
+    CORE_EXIT_CRITICAL();
 }
 
+// signals to bluetooth stack that external event occurred (custom timer finished)
 void scheduler_set_event_COMP1() {
-    //CORE_DECLARE_IRQ_STATE;
-    CORE_ATOMIC_IRQ_DISABLE();
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
     sl_bt_external_signal(EVENT_TIMER_EXPIRED);
-    CORE_ATOMIC_IRQ_ENABLE();
+    CORE_EXIT_CRITICAL();
 }
 
+// signals to bluetooth stack that external event occurred (i2c operation finished)
 void scheduler_set_event_I2C() {
-    //CORE_DECLARE_IRQ_STATE;
-    CORE_ATOMIC_IRQ_DISABLE();
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
     sl_bt_external_signal(EVENT_I2C_DONE);
-    CORE_ATOMIC_IRQ_ENABLE();
+    CORE_EXIT_CRITICAL();
 }
 
-// routine to clear a scheduler event, not currently used
-void scheduler_clear_event() {
-    CORE_ATOMIC_IRQ_DISABLE();
-    cur_event = EVENT_IDLE;
-    CORE_ATOMIC_IRQ_ENABLE();
+/*
+ * check if bluetooth connection closed or indications not enabled
+ * returns: boolean indicating whether to go to idle state
+ */
+uint8_t bluetooth_connection_errors() {
+    return (!(get_ble_data_ptr()->connectionOpen) || !(get_ble_data_ptr()->tempIndicationsEnabled));
+}
+
+/*
+ * helper function for state machine
+ * 1. checks if event is an external signal
+ * 2. if so, checks if extsignals matches event_id input parameter
+ *
+ * evt = event passed into state machine
+ * event_id = desired event to compare against
+ *
+ * returns: true if index is correct and the event matches, false if not
+ */
+uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id) {
+    if (SL_BT_MSG_ID(evt->header) != sl_bt_evt_system_external_signal_id) {
+        return false;
+    }
+
+    return (evt->data.evt_system_external_signal.extsignals == event_id);
+
 }
 
 // processing logic for handling states and events
@@ -74,20 +83,17 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
     // initially assume system will remain in current state
     uint8_t next_state = cur_state;
 
-    //ble_data_struct_t* ble_data = get_ble_data_ptr();
-
-    // nothing to do if event is not an external signal
-    if (SL_BT_MSG_ID(evt->header) != sl_bt_evt_system_external_signal_id)
-        return;
-
-    uint32_t my_event = evt->data.evt_system_external_signal.extsignals;
-
     switch (cur_state) {
 
         case STATE_IDLE:
 
+            // return to idle case
+            if (bluetooth_connection_errors()) {
+                next_state = STATE_IDLE;
+            }
+
             // when underflow interrupt occurs
-            if (my_event == EVENT_MEASURE_TEMP) {
+            else if (external_signal_event_match(evt, EVENT_MEASURE_TEMP)) {
                 next_state = STATE_SENSOR_POWERUP;
 
                 // initialize i2c
@@ -103,8 +109,16 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_SENSOR_POWERUP:
 
+            // return to idle case
+            if (bluetooth_connection_errors()) {
+                next_state = STATE_IDLE;
+                LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
+                gpioSi7021Disable();
+                deinit_i2c();
+            }
+
             // when COMP 1 interrupt occurs
-            if (my_event == EVENT_TIMER_EXPIRED) {
+            else if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
                 next_state = STATE_I2C_WRITE;
 
                 // EM <= 1 required during I2C transfers
@@ -117,8 +131,17 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_I2C_WRITE:
 
+            // return to idle case
+            if (bluetooth_connection_errors()) {
+                next_state = STATE_IDLE;
+                gpioSi7021Disable();
+                NVIC_DisableIRQ(I2C0_IRQn);
+                deinit_i2c();
+                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
+            }
+
             // when I2C interrupt occurs
-            if (my_event == EVENT_I2C_DONE) {
+            else if (external_signal_event_match(evt, EVENT_I2C_DONE)) {
                 next_state = STATE_INTERIM_DELAY;
 
                 // I2C transfer over, EM <= 1 no longer required
@@ -134,8 +157,16 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_INTERIM_DELAY:
 
+            // return to idle case
+            if (bluetooth_connection_errors()) {
+                next_state = STATE_IDLE;
+                LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
+                gpioSi7021Disable();
+                deinit_i2c();
+            }
+
             // when COMP1 interrupt occurs
-            if (my_event == EVENT_TIMER_EXPIRED) {
+            else if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
                 next_state = STATE_I2C_READ;
 
                 // EM <= 1 required during I2C transfers
@@ -148,8 +179,17 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_I2C_READ:
 
+            // return to idle case
+            if (bluetooth_connection_errors()) {
+                next_state = STATE_IDLE;
+                gpioSi7021Disable();
+                NVIC_DisableIRQ(I2C0_IRQn);
+                deinit_i2c();
+                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
+            }
+
             // when i2c interrupt occurs
-            if (my_event == EVENT_I2C_DONE) {
+            else if (external_signal_event_match(evt, EVENT_I2C_DONE)) {
                 next_state = STATE_IDLE;
 
                 // I2C transfer over, EM <= 1 no longer required
@@ -161,6 +201,9 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // send the temperature value
                 ble_transmit_temp();
 
+                // deinitialize temp sensor
+                gpioSi7021Disable();
+
                 // deinitialize i2c
                 deinit_i2c();
             }
@@ -170,6 +213,9 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
     // do a state transition
     if (cur_state != next_state) {
 
+        // update global status variable
+        cur_state = next_state;
+
         /*
          * IMPORTANT NOTE:
          * Leave this log statement commented out unless the board is running in EM0
@@ -177,7 +223,5 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
          */
         //LOG_INFO("STATE TRANSITION: %d -> %d", cur_state, next_state);
 
-        // update global status variable
-        cur_state = next_state;
     }
 }
