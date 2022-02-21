@@ -253,6 +253,7 @@ void displayInit()
     //gpioSensorEnSetOn(); // we need SENSOR_ENABLE=1 which is tied to DISP_ENABLE
     //                     // for the LCD, on all the time now
 
+    gpioSensorEnSetOn();
 
 
     // Init the dot matrix display data structure
@@ -314,7 +315,11 @@ void displayInit()
 	  //    LOG_...
     // }
 
-
+    sl_status_t timer_response;
+    timer_response = sl_bt_system_set_soft_timer(LCD_TIMER_INTERVAL, LCD_HANDLE, false);
+    if (timer_response != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_system_set_soft_timer");
+    }
 
 } // displayInit()
 
@@ -334,12 +339,13 @@ void displayUpdate()
 	display->last_extcomin_state_high = !display->last_extcomin_state_high;
 
 	// Edit #2
-  // Students: Create the function gpioSetDisplayExtcomin() that will set
+    // Students: Create the function gpioSetDisplayExtcomin() that will set
 	//           the EXTCOMIN input to the LCD. Add that function to gpio.c./.h
 	//           Then uncomment the following line.
 	//
-	//gpioSetDisplayExtcomin(display->last_extcomin_state_high);
 	
+	gpioSetDisplayExtcomin(display->last_extcomin_state_high);
+
 } // displayUpdate()
 
 

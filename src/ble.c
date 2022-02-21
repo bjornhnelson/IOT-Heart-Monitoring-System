@@ -8,6 +8,8 @@
 #include "ble.h"
 #include "i2c.h"
 #include "gatt_db.h"
+#include "lcd.h"
+#include "ble_device_type.h"
 
 // enable logging for errors
 #define INCLUDE_LOG_DEBUG 1
@@ -68,6 +70,9 @@ void ble_transmit_temp() {
         else {
             ble_data.indicationInFlight = true;
         }
+
+        // show temperature on LCD
+        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
     }
 }
 
@@ -109,6 +114,18 @@ void ble_server_boot_event() {
     if (status != SL_STATUS_OK) {
         LOG_ERROR("sl_bt_advertiser_start");
     }
+
+    // enable the LCD
+    displayInit();
+
+    displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A6");
+
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
+
+    displayPrintf(DISPLAY_ROW_BTADDR, "%x:%x:%x:%x:%x:%x",
+                  ble_data.myAddress.addr[0], ble_data.myAddress.addr[1], ble_data.myAddress.addr[2],
+                  ble_data.myAddress.addr[3], ble_data.myAddress.addr[4], ble_data.myAddress.addr[5]);
 
 }
 
@@ -156,6 +173,8 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
         LOG_ERROR("sl_bt_connection_set_parameters");
     }
 
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
+
 }
 
 // This event indicates that a connection was closed
@@ -170,6 +189,9 @@ void ble_server_connection_closed_event() {
     if (status != SL_STATUS_OK) {
         LOG_ERROR("sl_bt_advertiser_start");
     }
+
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
+    displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
 }
 

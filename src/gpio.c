@@ -42,6 +42,9 @@
 #define SI7021_PORT gpioPortD
 #define SI7021_PIN 15
 
+#define LCD_EXCOMIN_PORT gpioPortD
+#define LCD_EXCOMIN_PIN 13
+
 
 // Set GPIO drive strengths and modes of operation
 void init_GPIO() {
@@ -100,13 +103,23 @@ void gpioI2cSdaDisable() {
     GPIO_PinOutClear(I2C_SDA_PORT, I2C_SDA_PIN);
 }
 
-// Turn on temperature sensor pin
-void gpioSi7021Enable() {
+// Turn on temperature sensor and LCD pin
+void gpioSensorEnSetOn() {
     GPIO_PinOutSet(SI7021_PORT, SI7021_PIN);
 }
 
-// Turn off temperature sensor pin
-void gpioSi7021Disable() {
+// Turn off temperature sensor and LCD pin
+void gpioSensorEnSetOff() {
     GPIO_PinOutClear(SI7021_PORT, SI7021_PIN);
+}
+
+// Set the EXTCOMIN input to the LCD
+void gpioSetDisplayExtcomin(int last_status_on) {
+    if (last_status_on) {
+        GPIO_PinOutSet(LCD_EXCOMIN_PORT, LCD_EXCOMIN_PIN);
+    }
+    else {
+        GPIO_PinOutClear(LCD_EXCOMIN_PORT, LCD_EXCOMIN_PIN);
+    }
 }
 

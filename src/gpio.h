@@ -22,7 +22,8 @@ void gpioI2cSclEnable();
 void gpioI2cSclDisable();
 void gpioI2cSdaEnable();
 void gpioI2cSdaDisable();
-void gpioSi7021Enable();
-void gpioSi7021Disable();
+void gpioSensorEnSetOn();
+void gpioSensorEnSetOff();
+void gpioSetDisplayExtcomin(int last_status_on);
 
 #endif /* SRC_GPIO_H_ */

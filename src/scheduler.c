@@ -99,9 +99,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // initialize i2c
                 init_i2c();
 
-                // initialize temp sensor
-                gpioSi7021Enable();
-
                 // wait 80 ms for sensor to power up
                 timer_wait_us_IRQ(80000);
             }
@@ -113,7 +110,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
             if (bluetooth_connection_errors()) {
                 next_state = STATE_IDLE;
                 LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
-                gpioSi7021Disable();
                 deinit_i2c();
             }
 
@@ -134,7 +130,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
             // return to idle case
             if (bluetooth_connection_errors()) {
                 next_state = STATE_IDLE;
-                gpioSi7021Disable();
                 NVIC_DisableIRQ(I2C0_IRQn);
                 deinit_i2c();
                 sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
@@ -161,7 +156,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
             if (bluetooth_connection_errors()) {
                 next_state = STATE_IDLE;
                 LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
-                gpioSi7021Disable();
                 deinit_i2c();
             }
 
@@ -182,7 +176,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
             // return to idle case
             if (bluetooth_connection_errors()) {
                 next_state = STATE_IDLE;
-                gpioSi7021Disable();
+                //gpioSi7021Disable();
                 NVIC_DisableIRQ(I2C0_IRQn);
                 deinit_i2c();
                 sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
@@ -200,9 +194,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
 
                 // send the temperature value
                 ble_transmit_temp();
-
-                // deinitialize temp sensor
-                gpioSi7021Disable();
 
                 // deinitialize i2c
                 deinit_i2c();
