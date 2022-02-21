@@ -176,7 +176,6 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
             // return to idle case
             if (bluetooth_connection_errors()) {
                 next_state = STATE_IDLE;
-                //gpioSi7021Disable();
                 NVIC_DisableIRQ(I2C0_IRQn);
                 deinit_i2c();
                 sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
