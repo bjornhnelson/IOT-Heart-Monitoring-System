@@ -199,6 +199,9 @@ void ble_server_connection_closed_event() {
 void ble_server_connection_parameters_event(sl_bt_msg_t* evt) {
     //LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
+    // Just a trick to hide a compiler warning about unused input parameter evt.
+    (void) evt;
+
     // log interval, latency, and timeout values from **client**
     /*LOG_INFO("interval = %d, latency = %d, timeout = %d",
              evt->data.evt_connection_parameters.interval,
