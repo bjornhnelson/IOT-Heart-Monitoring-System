@@ -489,7 +489,7 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
 
         ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
-        LOG_INFO("CHAR VAL LEN: %d", ble_data.characteristicValue.len);
+        //LOG_INFO("CHAR VAL LEN: %d", ble_data.characteristicValue.len);
 
         for (int i=0; i<ble_data.characteristicValue.len; i++) {
             ble_data.characteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];

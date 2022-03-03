@@ -24,13 +24,16 @@ static client_states_t cur_client_state;
 // status variable for most recent event client needs to respond to
 static client_events_t cur_client_event = EVENT_CLIENT_IDLE;
 
+
+// 1809
 static uuid_t htm_service = {
-    .data = {0x18, 0x09},
+    .data = {0x09, 0x18},
     .len = 2
 };
 
+//
 static uuid_t htm_characteristic = {
-    .data = {0x2A, 0x1C},
+    .data = {0x1C, 0x2A},
     .len = 2
 };
 
@@ -310,7 +313,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
         case STATE_RECEIVING_INDICATIONS:
 
             // call display temp here
-            LOG_INFO("** Receiving Indications");
+            //LOG_INFO("** Receiving Indications");
 
             // do nothing, keep receiving indications until receiving close event
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
