@@ -250,6 +250,8 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             // open event
             if (cur_client_event == EVENT_CONNECTION_OPENED) {
                 LOG_INFO("STATE TRANSITION: Awaiting Connection -> Service Discovery");
+
+                LOG_INFO("** CALL sl_bt_gatt_discover_primary_services_by_uuid(%d, %d, %d %d", get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data[0], htm_service.data[1]);
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data);
 
                 if (status != SL_STATUS_OK) {
@@ -266,6 +268,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
                 LOG_INFO("STATE TRANSITION: Service Discovery -> Characteristic Discovery");
 
+                LOG_INFO("** CALL sl_bt_gatt_discover_characteristics_by_uuid(con handle %d, service handle %d, %d, %d %d", get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->serviceHandle, htm_characteristic.len, htm_characteristic.data[0], htm_characteristic.data[1]);
                 status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->serviceHandle, htm_characteristic.len, htm_characteristic.data);
 
                 if (status != SL_STATUS_OK) {
@@ -287,7 +290,9 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
                 LOG_INFO("STATE TRANSITION: Characteristic Discovery -> Receiving Indications");
 
-                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle, 0x02);
+                LOG_INFO("*** CALL SET CHARACTERISTIC NOTIFICATION: conHandle = %d   charHandle = %d", get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle);
+
+                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle, sl_bt_gatt_indication);
 
                 if (status != SL_STATUS_OK) {
                     LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");

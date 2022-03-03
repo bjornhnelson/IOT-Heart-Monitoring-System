@@ -47,6 +47,8 @@ typedef struct {
     bd_addr clientAddress;
     bd_addr serverAddress;
 
+    int32_t tempValue;
+
 
 } ble_data_struct_t;
 

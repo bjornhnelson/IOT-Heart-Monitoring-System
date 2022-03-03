@@ -11,6 +11,7 @@
 #include "lcd.h"
 #include "ble_device_type.h"
 #include "scheduler.h"
+#include "math.h"
 
 // enable logging for errors
 #define INCLUDE_LOG_DEBUG 1
@@ -400,6 +401,8 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
     //LOG_INFO("SCAN REPORT: %d", evt->data.evt_scanner_scan_report.address_type);
 
+    LOG_INFO("CLIENT: SCAN REPORT");
+
     uint8_t connection;
 
     // check conditions for opening connection - bd_addr, packet_type and address_type
@@ -430,31 +433,71 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 }
 
 void ble_client_gatt_procedure_completed_event() {
+    LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED");
     scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
 }
 
 void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
-
     ble_data.serviceHandle = evt->data.evt_gatt_service.service;
+
+    LOG_INFO("CLIENT: SERVICE EVENT: %d", ble_data.serviceHandle);
 }
 
 void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
-
     ble_data.characteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+    LOG_INFO("CLIENT: CHARACTERISTIC EVENT: %d", ble_data.characteristicHandle);
 }
+
+// Private function, original from Dan Walkes. I fixed a sign extension bug.
+// We'll need this for Client A7 assignment to convert health thermometer
+// indications back to an integer. Convert IEEE-11073 32-bit float to signed integer.
+
+static int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian) {
+    uint8_t signByte = 0;
+    int32_t mantissa;
+
+    // input data format is:
+    // [0] = flags byte
+    // [3][2][1] = mantissa (2's complement)
+    // [4] = exponent (2's complement)
+
+    // BT value_start_little_endian[0] has the flags byte
+    int8_t exponent = (int8_t)value_start_little_endian[4];
+
+    // sign extend the mantissa value if the mantissa is negative
+    if (value_start_little_endian[3] & 0x80) { // msb of [3] is the sign of the mantissa
+        signByte = 0xFF;
+    }
+
+    mantissa = (int32_t) (value_start_little_endian[1] << 0) |
+            (value_start_little_endian[2] << 8) |
+            (value_start_little_endian[3] << 16) |
+            (signByte << 24);
+
+    // value = 10^exponent * mantissa, pow() returns a double type
+    return (int32_t) (pow(10, exponent) * mantissa);
+}
+
 
 void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
     // if char handle and opcode is expected, save value and send confirmation
 
+    LOG_INFO("CLIENT: CHARACTERISTIC VALUE EVENT");
+
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
 
         ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
+        LOG_INFO("CHAR VAL LEN: %d", ble_data.characteristicValue.len);
 
         for (int i=0; i<ble_data.characteristicValue.len; i++) {
             ble_data.characteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
         }
+
+        // convert to int
+        ble_data.tempValue = FLOAT_TO_INT32(ble_data.characteristicValue.data);
+        LOG_INFO("VALUE CHECK: %d", ble_data.tempValue);
 
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
     }
