@@ -45,6 +45,7 @@ typedef struct {
     uint16_t characteristicHandle;
     uint8array characteristicValue;
     bd_addr clientAddress;
+    bd_addr serverAddress;
 
 
 } ble_data_struct_t;

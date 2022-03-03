@@ -38,7 +38,7 @@ static uuid_t htm_characteristic = {
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
     cur_client_state = STATE_AWAITING_CONNECTION;
-    //LOG_INFO("Scheduler started");
+    LOG_INFO("Scheduler started");
 }
 
 // signals to bluetooth stack that external event occurred (3 second timer elapsed)
@@ -246,14 +246,14 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
     switch (cur_client_state) {
         case STATE_AWAITING_CONNECTION:
-            LOG_INFO("** Awaiting Connection");
+            //LOG_INFO("** Awaiting Connection");
             // open event
             if (cur_client_event == EVENT_CONNECTION_OPENED) {
                 LOG_INFO("STATE TRANSITION: Awaiting Connection -> Service Discovery");
-                status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.len);
+                status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid: %d", status);
                 }
 
                 next_state = STATE_SERVICE_DISCOVERY;
@@ -262,6 +262,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_SERVICE_DISCOVERY:
             // service has been found
+            //LOG_INFO("** Service Discovery");
             if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
                 LOG_INFO("STATE TRANSITION: Service Discovery -> Characteristic Discovery");
 
@@ -282,6 +283,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
         case STATE_CHARACTERISTIC_DISCOVERY:
             // characteristic has been found
+            //LOG_INFO("** Characteristic Discovery");
             if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
                 LOG_INFO("STATE TRANSITION: Characteristic Discovery -> Receiving Indications");
 
@@ -303,6 +305,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
         case STATE_RECEIVING_INDICATIONS:
 
             // call display temp here
+            LOG_INFO("** Receiving Indications");
 
             // do nothing, keep receiving indications until receiving close event
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
@@ -315,7 +318,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
     // do a state transition
     if (cur_client_state != next_state) {
-        cur_server_state = next_state; // update global status variable
+        cur_client_state = next_state; // update global status variable
     }
 
 }

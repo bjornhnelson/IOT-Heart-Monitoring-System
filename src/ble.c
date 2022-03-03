@@ -134,8 +134,12 @@ void ble_boot_event() {
 
 #else
 
-    uint8_t myAddressType;
+    // save server address
+    bd_addr server_addr  = SERVER_BT_ADDRESS;
 
+    ble_data.serverAddress = server_addr;
+
+    uint8_t myAddressType;
     status = sl_bt_system_get_identity_address(&(ble_data.clientAddress), &myAddressType);
 
     uint8_t phys = 1;
@@ -245,6 +249,8 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
     scheduler_set_client_event(EVENT_CONNECTION_OPENED);
 
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
+
+    LOG_INFO("CLIENT CONNECTION HANDLE: %d", ble_data.clientConnectionHandle);
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
 
@@ -378,6 +384,10 @@ void ble_server_indication_timeout_event() {
 // CLIENT EVENTS BELOW
 
 bool addressesMatch(bd_addr a1, bd_addr a2) {
+
+    //LOG_INFO("Addr 1: %x:%x:%x:%x:%x:%x", a1.addr[0], a1.addr[1], a1.addr[2], a1.addr[3], a1.addr[4], a1.addr[5]);
+    //LOG_INFO("Addr 2: %x:%x:%x:%x:%x:%x", a2.addr[0], a2.addr[1], a2.addr[2], a2.addr[3], a2.addr[4], a2.addr[5]);
+
     return ((a1.addr[0] == a2.addr[0]) &&
             (a1.addr[1] == a2.addr[1]) &&
             (a1.addr[2] == a2.addr[2]) &&
@@ -388,13 +398,17 @@ bool addressesMatch(bd_addr a1, bd_addr a2) {
 
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
+    //LOG_INFO("SCAN REPORT: %d", evt->data.evt_scanner_scan_report.address_type);
+
     uint8_t connection;
 
     // check conditions for opening connection - bd_addr, packet_type and address_type
-    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.myAddress) &&
+    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.serverAddress))
+    /*if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.myAddress) &&
             //(evt->data.evt_scanner_scan_report.packet_type == 1) &&
-            (evt->data.evt_scanner_scan_report.address_type == 0)) // public address
+            (evt->data.evt_scanner_scan_report.address_type == 0)) // public address*/
     {
+        LOG_INFO("ADDRESSES MATCH!");
 
         status = sl_bt_scanner_stop();
 
@@ -402,7 +416,10 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
             LOG_ERROR("sl_bt_scanner_stop");
         }
 
-        status = sl_bt_connection_open(ble_data.myAddress, evt->data.evt_scanner_scan_report.address_type, 0x01, &connection);
+
+        // TODO: check these params
+        LOG_INFO("Called connection open");
+        status = sl_bt_connection_open(ble_data.serverAddress, evt->data.evt_scanner_scan_report.address_type, 0x01, &connection);
 
         if (status != SL_STATUS_OK) {
             LOG_ERROR("sl_bt_connection_open");
