@@ -158,19 +158,29 @@ SL_WEAK void app_init(void)
   // This is called once during start-up.
   // Don't call any Bluetooth API functions until after the boot event.
 
-
-  // energy mode setup
-  if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
+#if DEVICE_IS_BLE_SERVER
+    // energy mode setup
+    if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
       sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
-  }
+    }
 
-  init_scheduler();
-  init_GPIO();
-  init_oscillators();
-  init_timer();
+    init_scheduler();
+    init_GPIO();
+    init_oscillators();
+    init_timer();
 
-  NVIC_ClearPendingIRQ(LETIMER0_IRQn);
-  NVIC_EnableIRQ(LETIMER0_IRQn);
+    NVIC_ClearPendingIRQ(LETIMER0_IRQn);
+    NVIC_EnableIRQ(LETIMER0_IRQn);
+#else
+    if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
+          sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
+    }
+
+    init_scheduler();
+    init_GPIO();
+    init_oscillators();
+    init_timer();
+#endif
 
 }
 
@@ -222,19 +232,22 @@ SL_WEAK void app_process_action(void)
  *****************************************************************************/
 void sl_bt_on_event(sl_bt_msg_t *evt)
 {
-  
-  // Just a trick to hide a compiler warning about unused input parameter evt.
-  (void) evt;
 
-  // Some events require responses from our application code,
-  // and don’t necessarily advance our state machines.
-  // For assignment 5 uncomment the next 2 function calls
-  handle_ble_event(evt); // put this code in ble.c/.h
+    // Just a trick to hide a compiler warning about unused input parameter evt.
+    (void) evt;
 
-  // sequence through states driven by events
-  temperature_state_machine(evt);    // put this code in scheduler.c/.h
-  
-  
+    // Some events require responses from our application code,
+    // and don’t necessarily advance our state machines.
+    // For assignment 5 uncomment the next 2 function calls
+    handle_ble_event(evt); // put this code in ble.c/.h
+
+    // sequence through states driven by events
+    // put this code in scheduler.c/.h
+#if DEVICE_IS_BLE_SERVER
+    temperature_state_machine(evt);
+#else
+    discovery_state_machine(evt);
+#endif
    
 } // sl_bt_on_event()
 

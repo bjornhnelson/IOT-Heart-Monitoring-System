@@ -14,15 +14,30 @@
 
 #include "em_letimer.h"
 
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 // status variable for the current state of the system
-static states_t cur_state;
+static server_states_t cur_server_state;
+static client_states_t cur_client_state;
+
+// status variable for most recent event client needs to respond to
+static client_events_t cur_client_event = EVENT_CLIENT_IDLE;
+
+static uuid_t htm_service = {
+    .data = {0x18, 0x09},
+    .len = 2
+};
+
+static uuid_t htm_characteristic = {
+    .data = {0x2A, 0x1C},
+    .len = 2
+};
 
 // resets the data structures at initialization
 void init_scheduler() {
-    cur_state = STATE_IDLE;
+    cur_server_state = STATE_IDLE;
+    cur_client_state = STATE_AWAITING_CONNECTION;
     //LOG_INFO("Scheduler started");
 }
 
@@ -48,6 +63,10 @@ void scheduler_set_event_I2C() {
     CORE_ENTER_CRITICAL();
     sl_bt_external_signal(EVENT_I2C_DONE);
     CORE_EXIT_CRITICAL();
+}
+
+void scheduler_set_client_event(uint8_t event) {
+    cur_client_event = event;
 }
 
 /*
@@ -77,13 +96,13 @@ uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id) {
 
 }
 
-// processing logic for handling states and events
+// server processing logic for handling states and events
 void temperature_state_machine(sl_bt_msg_t* evt) {
 
     // initially assume system will remain in current state
-    uint8_t next_state = cur_state;
+    uint8_t next_state = cur_server_state;
 
-    switch (cur_state) {
+    switch (cur_server_state) {
 
         case STATE_IDLE:
 
@@ -201,10 +220,8 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
     }
 
     // do a state transition
-    if (cur_state != next_state) {
-
-        // update global status variable
-        cur_state = next_state;
+    if (cur_server_state != next_state) {
+        cur_server_state = next_state; // update global status variable
 
         /*
          * IMPORTANT NOTE:
@@ -214,4 +231,91 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
         //LOG_INFO("STATE TRANSITION: %d -> %d", cur_state, next_state);
 
     }
+}
+
+// client processing logic for handling states and events
+void discovery_state_machine(sl_bt_msg_t* evt) {
+
+    sl_status_t status;
+
+    // Just a trick to hide a compiler warning about unused input parameter evt.
+    (void) evt;
+
+    // initially assume system will remain in current state
+    uint8_t next_state = cur_client_state;
+
+    switch (cur_client_state) {
+        case STATE_AWAITING_CONNECTION:
+            LOG_INFO("** Awaiting Connection");
+            // open event
+            if (cur_client_event == EVENT_CONNECTION_OPENED) {
+                LOG_INFO("STATE TRANSITION: Awaiting Connection -> Service Discovery");
+                status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.len);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                }
+
+                next_state = STATE_SERVICE_DISCOVERY;
+            }
+        break;
+
+        case STATE_SERVICE_DISCOVERY:
+            // service has been found
+            if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
+                LOG_INFO("STATE TRANSITION: Service Discovery -> Characteristic Discovery");
+
+                status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->serviceHandle, htm_characteristic.len, htm_characteristic.data);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                }
+
+                cur_client_event = EVENT_CLIENT_IDLE;
+                next_state = STATE_CHARACTERISTIC_DISCOVERY;
+            }
+
+            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
+                next_state = STATE_AWAITING_CONNECTION;
+            }
+        break;
+
+        case STATE_CHARACTERISTIC_DISCOVERY:
+            // characteristic has been found
+            if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) {
+                LOG_INFO("STATE TRANSITION: Characteristic Discovery -> Receiving Indications");
+
+                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle, 0x02);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                }
+
+                cur_client_event = EVENT_CLIENT_IDLE;
+                next_state = STATE_RECEIVING_INDICATIONS;
+            }
+
+            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
+                next_state = STATE_AWAITING_CONNECTION;
+            }
+        break;
+
+        case STATE_RECEIVING_INDICATIONS:
+
+            // call display temp here
+
+            // do nothing, keep receiving indications until receiving close event
+            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
+                LOG_INFO("STATE TRANSITION: Receiving Indications -> Awaiting Connection");
+                next_state = STATE_AWAITING_CONNECTION;
+            }
+        break;
+
+    }
+
+    // do a state transition
+    if (cur_client_state != next_state) {
+        cur_server_state = next_state; // update global status variable
+    }
+
 }

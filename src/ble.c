@@ -10,6 +10,7 @@
 #include "gatt_db.h"
 #include "lcd.h"
 #include "ble_device_type.h"
+#include "scheduler.h"
 
 // enable logging for errors
 #define INCLUDE_LOG_DEBUG 1
@@ -58,7 +59,7 @@ void ble_transmit_temp() {
     if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled && !(ble_data.indicationInFlight)) {
 
         status = sl_bt_gatt_server_send_indication(
-                ble_data.connectionHandle,
+                ble_data.serverConnectionHandle,
                 gattdb_temperature_measurement, // characteristic from gatt_db.h
                 5, // value length
                 &temperature_buffer[0] // value
@@ -76,8 +77,12 @@ void ble_transmit_temp() {
     }
 }
 
+// COMMON SERVER + CLIENT EVENTS BELOW
+
 // This event indicates the device has started and the radio is ready
-void ble_server_boot_event() {
+void ble_boot_event() {
+
+#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("SYSTEM BOOT");
 
     uint8_t myAddressType;
@@ -127,6 +132,65 @@ void ble_server_boot_event() {
                   ble_data.myAddress.addr[0], ble_data.myAddress.addr[1], ble_data.myAddress.addr[2],
                   ble_data.myAddress.addr[3], ble_data.myAddress.addr[4], ble_data.myAddress.addr[5]);
 
+#else
+
+    uint8_t myAddressType;
+
+    status = sl_bt_system_get_identity_address(&(ble_data.clientAddress), &myAddressType);
+
+    uint8_t phys = 1;
+    status = sl_bt_scanner_set_mode(phys, 0); // 1M PHY, passive scanning
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_scanner_set_mode");
+    }
+
+    // Time = Value * .625 ms
+    uint16_t scan_interval = 80; // 50 ms
+    uint16_t scan_window = 40; // 25 ms
+    status = sl_bt_scanner_set_timing(phys, scan_interval, scan_window);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_scanner_set_timing");
+    }
+
+    // Value = Time / 1.25
+    uint16_t min_interval = 60; // 75 ms
+    uint16_t max_interval = 60; // 75 ms
+
+    uint16_t latency = 4;
+
+    uint16_t timeout = (1 + latency) * (max_interval * 2) + max_interval; // 660
+    uint16_t min_ce_length = 0;
+    uint16_t max_ce_length = 4;
+    status = sl_bt_connection_set_default_parameters(min_interval, max_interval, latency, timeout, min_ce_length, max_ce_length);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_connection_set_default_parameters");
+    }
+
+    // check 2nd parameter, not sure what is best
+    status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_scanner_start");
+    }
+
+    // enable the LCD
+    displayInit();
+
+    displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
+
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
+
+    displayPrintf(DISPLAY_ROW_BTADDR, "%x:%x:%x:%x:%x:%x",
+                  ble_data.clientAddress.addr[0], ble_data.clientAddress.addr[1], ble_data.clientAddress.addr[2],
+                  ble_data.clientAddress.addr[3], ble_data.clientAddress.addr[4], ble_data.clientAddress.addr[5]);
+
+
+#endif
+
 }
 
 /*
@@ -134,13 +198,15 @@ void ble_server_boot_event() {
  *
  * evt = event that occurred
  */
-void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
+void ble_connection_opened_event(sl_bt_msg_t* evt) {
+
+#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION OPENED");
 
     // update flags and save data
     ble_data.connectionOpen = true;
     ble_data.indicationInFlight = false;
-    ble_data.connectionHandle = evt->data.evt_connection_opened.connection;
+    ble_data.serverConnectionHandle = evt->data.evt_connection_opened.connection;
 
     // Stop advertising
     status = sl_bt_advertiser_stop(ble_data.advertisingSetHandle);
@@ -161,7 +227,7 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
     uint16_t max_ce_length = 0xffff; // no limitation
 
     // Send a request with a set of parameters to the master
-    status = sl_bt_connection_set_parameters(ble_data.connectionHandle,
+    status = sl_bt_connection_set_parameters(ble_data.serverConnectionHandle,
                                              ble_data.min_interval,
                                              ble_data.max_interval,
                                              ble_data.latency,
@@ -175,10 +241,25 @@ void ble_server_connection_opened_event(sl_bt_msg_t* evt) {
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
 
+#else
+    scheduler_set_client_event(EVENT_CONNECTION_OPENED);
+
+    ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
+
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
+
+    // already did default params
+    //sl_bt_connection_set_parameters();
+
+
+#endif
+
 }
 
 // This event indicates that a connection was closed
-void ble_server_connection_closed_event() {
+void ble_connection_closed_event() {
+
+#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION CLOSED");
 
     ble_data.connectionOpen = false;
@@ -193,10 +274,31 @@ void ble_server_connection_closed_event() {
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
+#else
+    scheduler_set_client_event(EVENT_CONNECTION_CLOSED);
+
+    uint8_t phys = 1;
+    // check 2nd parameter, not sure what is best
+    status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_scanner_start");
+    }
+
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
+    displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
+
+#endif
+
 }
 
 // Informational: triggered whenever the connection parameters are changed and at any time a connection is established
-void ble_server_connection_parameters_event(sl_bt_msg_t* evt) {
+void ble_connection_parameters_event(sl_bt_msg_t* evt) {
+
+    // Just a trick to hide a compiler warning about unused input parameter evt.
+    (void) evt;
+
+#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
     // Just a trick to hide a compiler warning about unused input parameter evt.
@@ -208,15 +310,31 @@ void ble_server_connection_parameters_event(sl_bt_msg_t* evt) {
              evt->data.evt_connection_parameters.latency,
              evt->data.evt_connection_parameters.timeout);*/
 
+#else
+    // hello
+#endif
+
 }
 
 // handles external events
-void ble_server_external_signal_event() {
+void ble_external_signal_event() {
+
+#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
     // nothing to do here, external events handled in temperature_state_machine()
 
+#else
+    // hello
+#endif
+
 }
+
+void ble_system_soft_timer_event() {
+    // do nothing
+}
+
+// SERVER EVENTS BELOW
 
 /*
  * Handles 2 cases
@@ -257,6 +375,76 @@ void ble_server_indication_timeout_event() {
     ble_data.indicationInFlight = false;
 }
 
+// CLIENT EVENTS BELOW
+
+bool addressesMatch(bd_addr a1, bd_addr a2) {
+    return ((a1.addr[0] == a2.addr[0]) &&
+            (a1.addr[1] == a2.addr[1]) &&
+            (a1.addr[2] == a2.addr[2]) &&
+            (a1.addr[3] == a2.addr[3]) &&
+            (a1.addr[4] == a2.addr[4]) &&
+            (a1.addr[5] == a2.addr[5]));
+}
+
+void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
+
+    uint8_t connection;
+
+    // check conditions for opening connection - bd_addr, packet_type and address_type
+    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.myAddress) &&
+            //(evt->data.evt_scanner_scan_report.packet_type == 1) &&
+            (evt->data.evt_scanner_scan_report.address_type == 0)) // public address
+    {
+
+        status = sl_bt_scanner_stop();
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_scanner_stop");
+        }
+
+        status = sl_bt_connection_open(ble_data.myAddress, evt->data.evt_scanner_scan_report.address_type, 0x01, &connection);
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_connection_open");
+        }
+
+    }
+
+}
+
+void ble_client_gatt_procedure_completed_event() {
+    scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
+}
+
+void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
+
+    ble_data.serviceHandle = evt->data.evt_gatt_service.service;
+}
+
+void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
+
+    ble_data.characteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+}
+
+void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
+
+    // if char handle and opcode is expected, save value and send confirmation
+
+    if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
+            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
+
+        ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
+
+        for (int i=0; i<ble_data.characteristicValue.len; i++) {
+            ble_data.characteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
+        }
+
+        sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
+    }
+
+
+}
+
 /*
  * event handler for various bluetooth events
  *
@@ -268,25 +456,28 @@ void handle_ble_event(sl_bt_msg_t* evt) {
 
         // events common to servers and clients
         case sl_bt_evt_system_boot_id:
-            ble_server_boot_event();
+            ble_boot_event();
             break;
 
         case sl_bt_evt_connection_opened_id:
-            ble_server_connection_opened_event(evt);
+            ble_connection_opened_event(evt);
             break;
 
         case sl_bt_evt_connection_closed_id:
-            ble_server_connection_closed_event();
+            ble_connection_closed_event();
             break;
 
         case sl_bt_evt_connection_parameters_id:
-            ble_server_connection_parameters_event(evt);
+            ble_connection_parameters_event(evt);
             break;
 
         case sl_bt_evt_system_external_signal_id:
-            ble_server_external_signal_event();
+            ble_external_signal_event();
             break;
 
+        case sl_bt_evt_system_soft_timer_id:
+            ble_system_soft_timer_event();
+            break;
 
         // events just for servers
         case sl_bt_evt_gatt_server_characteristic_status_id:
@@ -299,7 +490,26 @@ void handle_ble_event(sl_bt_msg_t* evt) {
 
 
         // events just for clients
-        // none right now
+        case sl_bt_evt_scanner_scan_report_id:
+            ble_client_scanner_scan_report_event(evt);
+        break;
+
+        case sl_bt_evt_gatt_procedure_completed_id:
+            ble_client_gatt_procedure_completed_event();
+        break;
+
+        case sl_bt_evt_gatt_service_id:
+            ble_client_gatt_service_event(evt);
+        break;
+
+        case sl_bt_evt_gatt_characteristic_id:
+            ble_client_gatt_characteristic_event(evt);
+        break;
+
+        case sl_bt_evt_gatt_characteristic_value_id:
+            ble_client_gatt_characteristic_value_event(evt);
+        break;
+
 
     }
 }

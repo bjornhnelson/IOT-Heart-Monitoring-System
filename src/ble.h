@@ -32,7 +32,7 @@ typedef struct {
     uint8_t advertisingSetHandle; // The advertising set handle allocated from Bluetooth stack.
     bool connectionOpen;
     bool indicationInFlight;
-    bool connectionHandle;
+    uint8_t serverConnectionHandle;
     bool tempIndicationsEnabled;
     uint16_t min_interval;
     uint16_t max_interval;
@@ -40,28 +40,37 @@ typedef struct {
     uint16_t timeout;
 
     // values unique for client
+    uint8_t clientConnectionHandle;
+    uint32_t serviceHandle;
+    uint16_t characteristicHandle;
+    uint8array characteristicValue;
+    bd_addr clientAddress;
 
 
 } ble_data_struct_t;
+
+typedef struct {
+    uint8_t data[2];
+    uint8_t len;
+} uuid_t;
 
 
 ble_data_struct_t* get_ble_data_ptr();
 
 void ble_transmit_temp();
 
-void ble_server_boot_event();
+// common server + client events
+void ble_boot_event();
+void ble_connection_opened_event(sl_bt_msg_t* evt);
+void ble_connection_closed_event();
+void ble_connection_parameters_event(sl_bt_msg_t* evt);
+void ble_external_signal_event();
 
-void ble_server_connection_opened_event(sl_bt_msg_t* evt);
-
-void ble_server_connection_closed_event();
-
-void ble_server_connection_parameters_event(sl_bt_msg_t* evt);
-
-void ble_server_external_signal_event();
-
+// server events
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
-
 void ble_server_indication_timeout_event();
+
+// client events
 
 void handle_ble_event(sl_bt_msg_t* event);
 
