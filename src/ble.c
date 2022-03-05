@@ -251,8 +251,6 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
 
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
 
-    LOG_INFO("CLIENT CONNECTION HANDLE: %d", ble_data.clientConnectionHandle);
-
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
 
     // already did default params
@@ -386,9 +384,6 @@ void ble_server_indication_timeout_event() {
 
 bool addressesMatch(bd_addr a1, bd_addr a2) {
 
-    //LOG_INFO("Addr 1: %x:%x:%x:%x:%x:%x", a1.addr[0], a1.addr[1], a1.addr[2], a1.addr[3], a1.addr[4], a1.addr[5]);
-    //LOG_INFO("Addr 2: %x:%x:%x:%x:%x:%x", a2.addr[0], a2.addr[1], a2.addr[2], a2.addr[3], a2.addr[4], a2.addr[5]);
-
     return ((a1.addr[0] == a2.addr[0]) &&
             (a1.addr[1] == a2.addr[1]) &&
             (a1.addr[2] == a2.addr[2]) &&
@@ -399,10 +394,6 @@ bool addressesMatch(bd_addr a1, bd_addr a2) {
 
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
-    //LOG_INFO("SCAN REPORT: %d", evt->data.evt_scanner_scan_report.address_type);
-
-    LOG_INFO("CLIENT: SCAN REPORT");
-
     uint8_t connection;
 
     // check conditions for opening connection - bd_addr, packet_type and address_type
@@ -411,7 +402,6 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
             //(evt->data.evt_scanner_scan_report.packet_type == 1) &&
             (evt->data.evt_scanner_scan_report.address_type == 0)) // public address*/
     {
-        LOG_INFO("ADDRESSES MATCH!");
 
         status = sl_bt_scanner_stop();
 
@@ -421,7 +411,6 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
 
         // TODO: check these params
-        LOG_INFO("Called connection open");
         status = sl_bt_connection_open(ble_data.serverAddress, evt->data.evt_scanner_scan_report.address_type, 0x01, &connection);
 
         if (status != SL_STATUS_OK) {
@@ -433,19 +422,16 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 }
 
 void ble_client_gatt_procedure_completed_event() {
-    LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED");
+    //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED");
     scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
 }
 
 void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
     ble_data.serviceHandle = evt->data.evt_gatt_service.service;
-
-    LOG_INFO("CLIENT: SERVICE EVENT: %d", ble_data.serviceHandle);
 }
 
 void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
     ble_data.characteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
-    LOG_INFO("CLIENT: CHARACTERISTIC EVENT: %d", ble_data.characteristicHandle);
 }
 
 // Private function, original from Dan Walkes. I fixed a sign extension bug.
@@ -483,8 +469,6 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
     // if char handle and opcode is expected, save value and send confirmation
 
-    LOG_INFO("CLIENT: CHARACTERISTIC VALUE EVENT");
-
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
 
@@ -497,7 +481,6 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
         // convert to int
         ble_data.tempValue = FLOAT_TO_INT32(ble_data.characteristicValue.data);
-        LOG_INFO("VALUE CHECK: %d", ble_data.tempValue);
 
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
     }
