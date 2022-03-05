@@ -18,7 +18,7 @@
 #define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
-// status variable for the current state of the system
+// status variables for the current state of the system
 static server_states_t cur_server_state;
 static client_states_t cur_client_state;
 
@@ -26,15 +26,15 @@ static client_states_t cur_client_state;
 static client_events_t cur_client_event = EVENT_CLIENT_IDLE;
 
 
-// 1809
+// UUID = 1809
 static uuid_t htm_service = {
-    .data = {0x09, 0x18},
+    .data = {0x09, 0x18}, // little endian
     .len = 2
 };
 
-// 2A1C
+// UUID = 2A1C
 static uuid_t htm_characteristic = {
-    .data = {0x1C, 0x2A},
+    .data = {0x1C, 0x2A}, // little endian
     .len = 2
 };
 
@@ -69,6 +69,7 @@ void scheduler_set_event_I2C() {
     CORE_EXIT_CRITICAL();
 }
 
+// called by bluetooth stack functions, used to advance discovery state machine
 void scheduler_set_client_event(uint8_t event) {
     cur_client_event = event;
 }
@@ -253,10 +254,6 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
             if (cur_client_event == EVENT_CONNECTION_OPENED) { // open event
 
-                displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
-                                  get_ble_data_ptr()->serverAddress.addr[0], get_ble_data_ptr()->serverAddress.addr[1], get_ble_data_ptr()->serverAddress.addr[2],
-                                  get_ble_data_ptr()->serverAddress.addr[3], get_ble_data_ptr()->serverAddress.addr[4], get_ble_data_ptr()->serverAddress.addr[5]);
-
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data);
 
                 if (status != SL_STATUS_OK) {
@@ -282,7 +279,6 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             }
 
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;
@@ -304,19 +300,14 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             }
 
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;
 
         case STATE_RECEIVING_INDICATIONS:
 
-            // display temp here, value received from server
-            displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", get_ble_data_ptr()->tempValue);
-
             // do nothing else, keep receiving indications until receiving close event
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;

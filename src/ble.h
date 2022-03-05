@@ -46,12 +46,12 @@ typedef struct {
     uint8array characteristicValue;
     bd_addr clientAddress;
     bd_addr serverAddress;
-
     int32_t tempValue;
 
 
 } ble_data_struct_t;
 
+// data structure for storing UUIDs
 typedef struct {
     uint8_t data[2];
     uint8_t len;
@@ -68,13 +68,20 @@ void ble_connection_opened_event(sl_bt_msg_t* evt);
 void ble_connection_closed_event();
 void ble_connection_parameters_event(sl_bt_msg_t* evt);
 void ble_external_signal_event();
+void ble_system_soft_timer_event();
 
 // server events
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
 void ble_server_indication_timeout_event();
 
 // client events
+void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt);
+void ble_client_gatt_procedure_completed_event();
+void ble_client_gatt_service_event(sl_bt_msg_t* evt);
+void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt);
+void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt);
 
+// event responder
 void handle_ble_event(sl_bt_msg_t* event);
 
 #endif /* SRC_BLE_H_ */

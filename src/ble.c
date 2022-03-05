@@ -26,6 +26,55 @@ ble_data_struct_t* get_ble_data_ptr() {
     return (&ble_data);
 }
 
+// Private function, original from Dan Walkes. I fixed a sign extension bug.
+// We'll need this for Client A7 assignment to convert health thermometer
+// indications back to an integer. Convert IEEE-11073 32-bit float to signed integer.
+static int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian) {
+    uint8_t signByte = 0;
+    int32_t mantissa;
+
+    // input data format is:
+    // [0] = flags byte
+    // [3][2][1] = mantissa (2's complement)
+    // [4] = exponent (2's complement)
+
+    // BT value_start_little_endian[0] has the flags byte
+    int8_t exponent = (int8_t)value_start_little_endian[4];
+
+    // sign extend the mantissa value if the mantissa is negative
+    if (value_start_little_endian[3] & 0x80) { // msb of [3] is the sign of the mantissa
+        signByte = 0xFF;
+    }
+
+    mantissa = (int32_t) (value_start_little_endian[1] << 0) |
+            (value_start_little_endian[2] << 8) |
+            (value_start_little_endian[3] << 16) |
+            (signByte << 24);
+
+    // value = 10^exponent * mantissa, pow() returns a double type
+    return (int32_t) (pow(10, exponent) * mantissa);
+}
+
+// OTHER FUNCTIONS
+
+/*
+ * check if 2 bluetooth addresses match
+ *
+ * a1 = address 1
+ * a2 = address 2
+ *
+ * returns: true or false
+ */
+static bool addressesMatch(bd_addr a1, bd_addr a2) {
+
+    return ((a1.addr[0] == a2.addr[0]) &&
+            (a1.addr[1] == a2.addr[1]) &&
+            (a1.addr[2] == a2.addr[2]) &&
+            (a1.addr[3] == a2.addr[3]) &&
+            (a1.addr[4] == a2.addr[4]) &&
+            (a1.addr[5] == a2.addr[5]));
+}
+
 // called by state machine to send temperature to client
 void ble_transmit_temp() {
 
@@ -174,7 +223,6 @@ void ble_boot_event() {
         LOG_ERROR("sl_bt_connection_set_default_parameters");
     }
 
-    // check 2nd parameter, not sure what is best
     status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
 
     if (status != SL_STATUS_OK) {
@@ -252,10 +300,9 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
-
-    // already did default params
-    //sl_bt_connection_set_parameters();
-
+    displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
+                  get_ble_data_ptr()->serverAddress.addr[0], get_ble_data_ptr()->serverAddress.addr[1], get_ble_data_ptr()->serverAddress.addr[2],
+                  get_ble_data_ptr()->serverAddress.addr[3], get_ble_data_ptr()->serverAddress.addr[4], get_ble_data_ptr()->serverAddress.addr[5]);
 
 #endif
 
@@ -283,7 +330,6 @@ void ble_connection_closed_event() {
     scheduler_set_client_event(EVENT_CONNECTION_CLOSED);
 
     uint8_t phys = 1;
-    // check 2nd parameter, not sure what is best
     status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
 
     if (status != SL_STATUS_OK) {
@@ -292,6 +338,7 @@ void ble_connection_closed_event() {
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
+    displayPrintf(DISPLAY_ROW_BTADDR2, "");
 
 #endif
 
@@ -303,21 +350,13 @@ void ble_connection_parameters_event(sl_bt_msg_t* evt) {
     // Just a trick to hide a compiler warning about unused input parameter evt.
     (void) evt;
 
-#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION PARAMETERS CHANGED");
-
-    // Just a trick to hide a compiler warning about unused input parameter evt.
-    (void) evt;
 
     // log interval, latency, and timeout values from **client**
     /*LOG_INFO("interval = %d, latency = %d, timeout = %d",
              evt->data.evt_connection_parameters.interval,
              evt->data.evt_connection_parameters.latency,
              evt->data.evt_connection_parameters.timeout);*/
-
-#else
-    // hello
-#endif
 
 }
 
@@ -330,13 +369,14 @@ void ble_external_signal_event() {
     // nothing to do here, external events handled in temperature_state_machine()
 
 #else
-    // hello
+    // nothing to do for client
 #endif
 
 }
 
+// handles soft timer events
 void ble_system_soft_timer_event() {
-    // do nothing
+    displayUpdate(); // prevent charge buildup
 }
 
 // SERVER EVENTS BELOW
@@ -359,6 +399,7 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
                 ble_data.tempIndicationsEnabled = false;
+                displayPrintf(DISPLAY_ROW_TEMPVALUE, ""); // remove temp value from LCD
             }
 
             if (client_config_flags == gatt_indication) {
@@ -382,26 +423,16 @@ void ble_server_indication_timeout_event() {
 
 // CLIENT EVENTS BELOW
 
-bool addressesMatch(bd_addr a1, bd_addr a2) {
-
-    return ((a1.addr[0] == a2.addr[0]) &&
-            (a1.addr[1] == a2.addr[1]) &&
-            (a1.addr[2] == a2.addr[2]) &&
-            (a1.addr[3] == a2.addr[3]) &&
-            (a1.addr[4] == a2.addr[4]) &&
-            (a1.addr[5] == a2.addr[5]));
-}
-
+// handles scan report logic, opens connection if server found
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
+    // needed variables for opening connection
     uint8_t connection;
 
-    // check conditions for opening connection - bd_addr, packet_type and address_type
-    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.serverAddress))
-    /*if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.myAddress) &&
-            //(evt->data.evt_scanner_scan_report.packet_type == 1) &&
-            (evt->data.evt_scanner_scan_report.address_type == 0)) // public address*/
-    {
+    // check conditions for opening connection - bluetooth addresses match, packet and address types are expected values
+    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.serverAddress) &&
+            ((evt->data.evt_scanner_scan_report.packet_type & 7) == 0) && // lower 3 bits -> corresponds to connectable scannable undirected advertising
+            (evt->data.evt_scanner_scan_report.address_type == 0)) { // public address type
 
         status = sl_bt_scanner_stop();
 
@@ -409,9 +440,7 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
             LOG_ERROR("sl_bt_scanner_stop");
         }
 
-
-        // TODO: check these params
-        status = sl_bt_connection_open(ble_data.serverAddress, evt->data.evt_scanner_scan_report.address_type, 0x01, &connection);
+        status = sl_bt_connection_open(ble_data.serverAddress, evt->data.evt_scanner_scan_report.address_type, sl_bt_gap_1m_phy, &connection);
 
         if (status != SL_STATUS_OK) {
             LOG_ERROR("sl_bt_connection_open");
@@ -421,67 +450,43 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 
 }
 
+// notifies scheduler that a GATT procedure has been completed
 void ble_client_gatt_procedure_completed_event() {
     //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED");
     scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
 }
 
+// saves the handle of the health thermometer service
 void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
     ble_data.serviceHandle = evt->data.evt_gatt_service.service;
 }
 
+// saves the handle of the health thermometer characteristic
 void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
     ble_data.characteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
 }
 
-// Private function, original from Dan Walkes. I fixed a sign extension bug.
-// We'll need this for Client A7 assignment to convert health thermometer
-// indications back to an integer. Convert IEEE-11073 32-bit float to signed integer.
-
-static int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian) {
-    uint8_t signByte = 0;
-    int32_t mantissa;
-
-    // input data format is:
-    // [0] = flags byte
-    // [3][2][1] = mantissa (2's complement)
-    // [4] = exponent (2's complement)
-
-    // BT value_start_little_endian[0] has the flags byte
-    int8_t exponent = (int8_t)value_start_little_endian[4];
-
-    // sign extend the mantissa value if the mantissa is negative
-    if (value_start_little_endian[3] & 0x80) { // msb of [3] is the sign of the mantissa
-        signByte = 0xFF;
-    }
-
-    mantissa = (int32_t) (value_start_little_endian[1] << 0) |
-            (value_start_little_endian[2] << 8) |
-            (value_start_little_endian[3] << 16) |
-            (signByte << 24);
-
-    // value = 10^exponent * mantissa, pow() returns a double type
-    return (int32_t) (pow(10, exponent) * mantissa);
-}
-
-
+// saves temperature value in indication
 void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
     // if char handle and opcode is expected, save value and send confirmation
-
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
 
         ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
-        //LOG_INFO("CHAR VAL LEN: %d", ble_data.characteristicValue.len);
 
+        // save value into data structure
         for (int i=0; i<ble_data.characteristicValue.len; i++) {
             ble_data.characteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
         }
 
-        // convert to int
+        // convert value to int, save in data structure
         ble_data.tempValue = FLOAT_TO_INT32(ble_data.characteristicValue.data);
 
+        // display temp here, value received from server
+        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data.tempValue);
+
+        // send indication confirmation back to server
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
     }
 
@@ -531,7 +536,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_indication_timeout_event();
             break;
 
-
         // events just for clients
         case sl_bt_evt_scanner_scan_report_id:
             ble_client_scanner_scan_report_event(evt);
@@ -552,7 +556,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
         case sl_bt_evt_gatt_characteristic_value_id:
             ble_client_gatt_characteristic_value_event(evt);
         break;
-
 
     }
 }
