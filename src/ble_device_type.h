@@ -17,7 +17,7 @@
  * Set to 1 to configure this build as a BLE server.
  * Set to 0 to configure as a BLE client
  */
-#define DEVICE_IS_BLE_SERVER 0
+#define DEVICE_IS_BLE_SERVER 1
 
 
 // For your Bluetooth Client implementations.

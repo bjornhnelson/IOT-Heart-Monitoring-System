@@ -11,6 +11,7 @@
 #include "gpio.h"
 #include "timers.h"
 #include "ble.h"
+#include "lcd.h"
 
 #include "em_letimer.h"
 
@@ -254,6 +255,10 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             if (cur_client_event == EVENT_CONNECTION_OPENED) {
                 LOG_INFO("STATE TRANSITION: Awaiting Connection -> Service Discovery");
 
+                displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
+                                  get_ble_data_ptr()->serverAddress.addr[0], get_ble_data_ptr()->serverAddress.addr[1], get_ble_data_ptr()->serverAddress.addr[2],
+                                  get_ble_data_ptr()->serverAddress.addr[3], get_ble_data_ptr()->serverAddress.addr[4], get_ble_data_ptr()->serverAddress.addr[5]);
+
                 LOG_INFO("** CALL sl_bt_gatt_discover_primary_services_by_uuid(%d, %d, %d %d", get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data[0], htm_service.data[1]);
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data);
 
@@ -275,7 +280,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
                 status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->serviceHandle, htm_characteristic.len, htm_characteristic.data);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                    LOG_ERROR("sl_bt_gatt_discover_characteristics_by_uuid");
                 }
 
                 cur_client_event = EVENT_CLIENT_IDLE;
@@ -283,6 +288,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             }
 
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
+                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;
@@ -298,14 +304,17 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
                 status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle, sl_bt_gatt_indication);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid");
+                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification");
                 }
+
+                displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
 
                 cur_client_event = EVENT_CLIENT_IDLE;
                 next_state = STATE_RECEIVING_INDICATIONS;
             }
 
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
+                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;
@@ -315,9 +324,12 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             // call display temp here
             //LOG_INFO("** Receiving Indications");
 
+            displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", get_ble_data_ptr()->tempValue);
+
             // do nothing, keep receiving indications until receiving close event
             if (cur_client_event == EVENT_CONNECTION_CLOSED) {
                 LOG_INFO("STATE TRANSITION: Receiving Indications -> Awaiting Connection");
+                displayPrintf(DISPLAY_ROW_BTADDR2, "");
                 next_state = STATE_AWAITING_CONNECTION;
             }
         break;

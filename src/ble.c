@@ -125,7 +125,7 @@ void ble_boot_event() {
     displayInit();
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A6");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
 
