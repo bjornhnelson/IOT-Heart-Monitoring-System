@@ -129,4 +129,29 @@
       </descriptor>
     </characteristic>
   </service>
+  
+  <!--ECEN5823 Encryption Test-->
+  <service advertise="true" name="ECEN5823 Encryption Test" requirement="mandatory" sourceId="" type="primary" uuid="00000001-38c8-433e-87ec-652a2d136289">
+    <informativeText/>
+    
+    <!--ECEN5823 Encrypted Button State-->
+    <characteristic const="false" id="button_state" name="ECEN5823 Encrypted Button State" sourceId="" uuid="00000002-38c8-433e-87ec-652a2d136289">
+      <informativeText/>
+      <value length="1" type="hex" variable_length="false">00</value>
+      <properties>
+        <read authenticated="false" bonded="true" encrypted="false"/>
+        <indicate authenticated="false" bonded="true" encrypted="false"/>
+      </properties>
+      
+      <!--Client Characteristic Configuration-->
+      <descriptor const="false" discoverable="true" id="client_characteristic_configuration_5" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
+        <properties>
+          <read authenticated="false" bonded="false" encrypted="false"/>
+          <write authenticated="false" bonded="false" encrypted="false"/>
+        </properties>
+        <value length="2" type="hex" variable_length="false">00</value>
+        <informativeText/>
+      </descriptor>
+    </characteristic>
+  </service>
 </gatt>
