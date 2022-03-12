@@ -18,6 +18,123 @@
 #define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
+
+// CIRCULAR BUFFER CODE
+
+#define QUEUE_DEPTH      (16)
+
+typedef struct {
+    uint16_t charHandle; // Char handle from gatt_db.h
+    size_t bufferLength; // Length of buffer in bytes to send
+
+    // Need space for HTM (5 bytes) and button_state (2 bytes) indications, buffer[0] holds the flag byte
+    uint8_t buffer[5]; // The actual data buffer for the indication.
+
+} queue_struct_t;
+
+// Declare memory for the queue/buffer/fifo, and the write and read pointers
+queue_struct_t   my_queue[QUEUE_DEPTH]; // the queue
+uint32_t         wptr = 0;              // write pointer
+uint32_t         rptr = 0;              // read pointer
+
+int num_queue_entries = 0; // how many elements are in the buffer
+
+
+// ---------------------------------------------------------------------
+// Private function used only by this .c file.
+// compute next ptr value
+// Isolation of functionality: This defines "how" a pointer advances.
+// ---------------------------------------------------------------------
+static uint32_t nextPtr(uint32_t ptr) {
+
+  if (ptr + 1 == QUEUE_DEPTH) {
+      return 0; // wrap back to beginning of queue
+  }
+  else {
+      return ptr + 1; // advance by 1
+  }
+
+} // nextPtr()
+
+
+// status check for enqueuing
+bool queue_full() {
+    if (num_queue_entries == QUEUE_DEPTH)
+        return true;
+    else
+        return false;
+}
+
+
+// status check for dequeuing
+bool queue_empty() {
+    if (num_queue_entries == 0)
+        return true;
+    else
+        return false;
+}
+
+
+// ---------------------------------------------------------------------
+// Public function
+// This function writes an entry to the queue.
+// Returns false if successful or true if writing to a full fifo.
+// ---------------------------------------------------------------------
+bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
+
+  // nothing enqueued, fifo full
+  if (queue_full()) {
+      return true;
+  }
+
+  // element enqueued
+  my_queue[wptr].charHandle = charHandle;
+  my_queue[wptr].bufferLength = bufferLength;
+
+  for (int i=0; i<5; i++) {
+      my_queue[wptr].buffer[i] = buffer[i];
+  }
+
+  wptr = nextPtr(wptr);
+  num_queue_entries++;
+
+  return false;
+
+} // write_queue()
+
+
+// ---------------------------------------------------------------------
+// Public function
+// This function reads an entry from the queue.
+// Returns false if successful or true if reading from an empty fifo.
+// ---------------------------------------------------------------------
+bool read_queue (uint16_t* charHandle, size_t* bufferLength, uint8_t** buffer) {
+
+  // nothing dequeued, fifo empty
+  if (queue_empty()) {
+      return true;
+  }
+
+  // element dequeued
+  *charHandle = my_queue[rptr].charHandle;
+  *bufferLength = my_queue[rptr].bufferLength;
+  *buffer = my_queue[rptr].buffer;
+
+  rptr = nextPtr(rptr);
+  num_queue_entries--;
+
+  return false;
+
+} // read_queue()
+
+
+// END OF CIRCULAR BUFFER CODE
+
+
+// 2nd soft timer setup
+#define QUEUE_HANDLE 3
+#define QUEUE_TIMER_INTERVAL 8000 // 0.5 seconds - 16339
+
 sl_status_t status; // return variable for various api calls
 
 ble_data_struct_t ble_data; // // BLE private data
@@ -87,18 +204,24 @@ void ble_transmit_button_state() {
     // connection open AND button_state indications are enabled AND bonded
     if (ble_data.connectionOpen && ble_data.pbIndicationsEnabled && ble_data.bonded) {
 
-        status = sl_bt_gatt_server_send_indication(
-                ble_data.serverConnectionHandle,
-                gattdb_button_state, // characteristic from gatt_db.h
-                2, // value length
-                &pb_buffer[0] // value
-                );
+        // no indication in flight, send right away
+        if (!(ble_data.indicationInFlight)) {
+            status = sl_bt_gatt_server_send_indication(
+                    ble_data.serverConnectionHandle,
+                    gattdb_button_state, // characteristic from gatt_db.h
+                    2, // value length
+                    &pb_buffer[0] // value
+                    );
 
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("PB sl_bt_gatt_server_send_indication");
+            if (status != SL_STATUS_OK) {
+                LOG_ERROR("PB sl_bt_gatt_server_send_indication");
+            }
+            else {
+                ble_data.indicationInFlight = true;
+            }
         }
-        else {
-            ble_data.indicationInFlight = true;
+        else { // put into circular buffer, send later
+            write_queue(gattdb_button_state, 2, pb_buffer);
         }
     }
 }
@@ -134,24 +257,31 @@ void ble_transmit_temp() {
     }
 
     // check if conditions are correct to send an indication
-    if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled && !(ble_data.indicationInFlight)) {
+    if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled) {
 
-        status = sl_bt_gatt_server_send_indication(
-                ble_data.serverConnectionHandle,
-                gattdb_temperature_measurement, // characteristic from gatt_db.h
-                5, // value length
-                &temperature_buffer[0] // value
-                );
+        // no indication in flight, send right away
+        if (!(ble_data.indicationInFlight)) {
+            status = sl_bt_gatt_server_send_indication(
+                    ble_data.serverConnectionHandle,
+                    gattdb_temperature_measurement, // characteristic from gatt_db.h
+                    5, // value length
+                    &temperature_buffer[0] // value
+                    );
 
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_gatt_server_send_indication");
+            if (status != SL_STATUS_OK) {
+                LOG_ERROR("TEMP sl_bt_gatt_server_send_indication");
+            }
+            else {
+                ble_data.indicationInFlight = true;
+            }
+
+            // show temperature on LCD
+            // TODO: figure out when to call this from soft timer
+            displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
         }
-        else {
-            ble_data.indicationInFlight = true;
+        else { // put into circular buffer, send later
+            write_queue(gattdb_temperature_measurement, 5, temperature_buffer);
         }
-
-        // show temperature on LCD
-        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
     }
 }
 
@@ -219,7 +349,7 @@ void ble_boot_event() {
     }
 
     // enable the LCD
-    displayInit();
+    displayInit(); // starts a 1 second soft timer
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
     displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A8");
@@ -342,6 +472,13 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
 
+    // start a 2nd soft timer for circular queue checks
+    status = sl_bt_system_set_soft_timer(QUEUE_TIMER_INTERVAL, QUEUE_HANDLE, false);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_system_set_soft_timer 2");
+    }
+
 #else
     scheduler_set_client_event(EVENT_CONNECTION_OPENED);
 
@@ -423,7 +560,6 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
     // handle pairing process
     if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true) && ble_data.pb0Pressed) {
-        LOG_INFO("PB0 Pressed");
 
         status = sl_bt_sm_passkey_confirm(ble_data.serverConnectionHandle, 1);
 
@@ -451,6 +587,9 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
         if (status != SL_STATUS_OK) {
             LOG_ERROR("sl_bt_gatt_server_write_attribute_value");
         }
+
+        // send an indication
+        ble_transmit_button_state();
     }
 
 #else
@@ -460,13 +599,54 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 }
 
 // handles soft timer events
-void ble_system_soft_timer_event() {
+void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
 
 #if DEVICE_IS_BLE_SERVER
-    displayUpdate(); // prevent charge buildup
 
-    // send the push button state
-    ble_transmit_button_state();
+    // every 1 second
+    if (evt->data.evt_system_soft_timer.handle == LCD_HANDLE) {
+        // LOG_INFO("Soft Timer 1");
+
+        displayUpdate(); // prevent charge buildup on LCD
+    }
+
+    uint16_t charHandle;
+    size_t bufferLength;
+    uint8_t buffer[5];
+    buffer[0] = 0; // set flags
+
+    // every 0.5 seconds
+    if (evt->data.evt_system_soft_timer.handle == QUEUE_HANDLE) {
+        // LOG_INFO("Soft Timer 1");
+
+        /*
+         * check the queue for pending indications
+         *
+         * if: there are queued indications AND no indication in flight
+         * then: remove 1 indication from the tail of queue, send indication, set indication in flight
+         */
+
+         if ((num_queue_entries > 0) && !(ble_data.indicationInFlight)) {
+             read_queue (&charHandle, &bufferLength, ((uint8_t**) &buffer));
+
+             status = sl_bt_gatt_server_send_indication(
+                     ble_data.serverConnectionHandle,
+                     charHandle, // characteristic from gatt_db.h
+                     bufferLength, // value length
+                     &buffer[0] // value
+                     );
+
+             if (status != SL_STATUS_OK) {
+                 LOG_ERROR("QUEUE sl_bt_gatt_server_send_indication");
+             }
+             else {
+                 LOG_INFO("QUEUE INDICATION SENT: charHandle=%d, len=%d value=%d", charHandle, bufferLength, buffer[1]);
+                 ble_data.indicationInFlight = true;
+             }
+
+         }
+
+    }
 
 #else
     displayUpdate(); // prevent charge buildup
@@ -669,7 +849,7 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             break;
 
         case sl_bt_evt_system_soft_timer_id:
-            ble_system_soft_timer_event();
+            ble_system_soft_timer_event(evt);
             break;
 
         // events just for servers
