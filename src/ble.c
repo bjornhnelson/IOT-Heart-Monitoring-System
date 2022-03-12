@@ -76,7 +76,34 @@ static bool addressesMatch(bd_addr a1, bd_addr a2) {
             (a1.addr[5] == a2.addr[5]));
 }
 
-// called by state machine to send temperature to client
+// called by state machine to send push button indications to client
+void ble_transmit_button_state() {
+
+    uint8_t pb_buffer[2];
+    pb_buffer[0] = 0; // flags byte
+    pb_buffer[1] = ble_data.pb0Pressed;
+
+    // check if conditions are correct to send an indication
+    // connection open AND button_state indications are enabled AND bonded
+    if (ble_data.connectionOpen && ble_data.pbIndicationsEnabled && ble_data.bonded) {
+
+        status = sl_bt_gatt_server_send_indication(
+                ble_data.serverConnectionHandle,
+                gattdb_button_state, // characteristic from gatt_db.h
+                2, // value length
+                &pb_buffer[0] // value
+                );
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("PB sl_bt_gatt_server_send_indication");
+        }
+        else {
+            ble_data.indicationInFlight = true;
+        }
+    }
+}
+
+// called by state machine to send temperature indications to client
 void ble_transmit_temp() {
 
     uint8_t temperature_buffer[5]; // why 5?
@@ -103,7 +130,7 @@ void ble_transmit_temp() {
             );
 
     if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_gatt_server_write_attribute_value");
+        LOG_ERROR("TEMP sl_bt_gatt_server_write_attribute_value");
     }
 
     // check if conditions are correct to send an indication
@@ -395,7 +422,7 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
     //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
     // handle pairing process
-    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true)) {
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true) && ble_data.pb0Pressed) {
         LOG_INFO("PB0 Pressed");
 
         status = sl_bt_sm_passkey_confirm(ble_data.serverConnectionHandle, 1);
@@ -434,7 +461,16 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
 // handles soft timer events
 void ble_system_soft_timer_event() {
+
+#if DEVICE_IS_BLE_SERVER
     displayUpdate(); // prevent charge buildup
+
+    // send the push button state
+    ble_transmit_button_state();
+
+#else
+    displayUpdate(); // prevent charge buildup
+#endif
 }
 
 // SERVER EVENTS BELOW
@@ -453,6 +489,7 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
     uint8_t status_flags = evt->data.evt_gatt_server_characteristic_status.status_flags;
     uint16_t client_config_flags = evt->data.evt_gatt_server_characteristic_status.client_config_flags;
 
+    // temperature measurement indication handling
     if (characteristic == gattdb_temperature_measurement) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
@@ -472,6 +509,25 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
         }
     }
 
+    // push button state indication handling
+    if (characteristic == gattdb_button_state) {
+        if (status_flags == gatt_server_client_config) {
+            if (client_config_flags == gatt_disable) {
+                ble_data.pbIndicationsEnabled = false;
+                gpioLed1SetOff();
+            }
+
+            if (client_config_flags == gatt_indication) {
+                gpioLed1SetOn();
+                ble_data.pbIndicationsEnabled = true;
+            }
+        }
+
+        if (status_flags == gatt_server_confirmation) {
+            ble_data.indicationInFlight = false;
+        }
+    }
+
 }
 
 // Possible event from never receiving confirmation for previously transmitted indication
@@ -483,7 +539,6 @@ void ble_server_indication_timeout_event() {
 
 void ble_server_sm_confirm_bonding_event() {
     status = sl_bt_sm_bonding_confirm(ble_data.serverConnectionHandle, 1);
-    LOG_INFO("CONFIRM BONDING EVENT");
 
     if (status != SL_STATUS_OK) {
         LOG_ERROR("sl_bt_sm_bonding_confirm");
@@ -492,13 +547,14 @@ void ble_server_sm_confirm_bonding_event() {
 
 void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
     if (ble_data.bonded == false) {
-        displayPrintf(DISPLAY_ROW_PASSKEY, "%06d" , evt->data.evt_sm_passkey_display.passkey);
+        displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
         displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
         ble_data.passkeyConfirm = true;
     }
 }
 
 void ble_server_sm_bonded_id() {
+    ble_data.bonded = true;
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
     displayPrintf(DISPLAY_ROW_PASSKEY, "");
     displayPrintf(DISPLAY_ROW_ACTION, "");
@@ -625,7 +681,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_indication_timeout_event();
             break;
 
-        // new a8 cases
         case sl_bt_evt_sm_confirm_bonding_id:
             ble_server_sm_confirm_bonding_event();
             break;
@@ -634,9 +689,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_sm_confirm_passkey_id(evt);
             break;
 
-        /*case sl_bt_evt_system_external_signal_id:
-            break;*/
-
         case sl_bt_evt_sm_bonded_id:
             ble_server_sm_bonded_id();
             break;
@@ -644,13 +696,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
         case sl_bt_evt_sm_bonding_failed_id:
             ble_server_sm_bonding_failed_id();
             break;
-
-        // APIs
-            /*sl_bt_sm_delete_bondings()
-            sl_bt_sm_configure(flags, sm_io_capability_displayyesno)
-            sl_bt_sm_bonding_confirm() sl_bt_sm_passkey_confirm()
-            sl_bt_gatt_server_write_attribute_value(button_state)*/
-
 
         // events just for clients
         case sl_bt_evt_scanner_scan_report_id:
