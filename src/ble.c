@@ -194,7 +194,7 @@ void ble_boot_event() {
     displayInit();
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A8");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
 
@@ -382,12 +382,16 @@ void ble_connection_parameters_event(sl_bt_msg_t* evt) {
 }
 
 // handles external events
-void ble_external_signal_event() {
+void ble_external_signal_event(sl_bt_msg_t* evt) {
 
 #if DEVICE_IS_BLE_SERVER
     //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
     // nothing to do here, external events handled in temperature_state_machine()
+
+    if (evt->data.evt_system_external_signal.extsignals == EVENT_PB0_PRESSED) {
+        LOG_INFO("PB0 Pressed");
+    }
 
 #else
     // nothing to do for client
@@ -568,7 +572,7 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             break;
 
         case sl_bt_evt_system_external_signal_id:
-            ble_external_signal_event();
+            ble_external_signal_event(evt);
             break;
 
         case sl_bt_evt_system_soft_timer_id:

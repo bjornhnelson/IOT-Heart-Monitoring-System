@@ -171,6 +171,12 @@ SL_WEAK void app_init(void)
 
     NVIC_ClearPendingIRQ(LETIMER0_IRQn);
     NVIC_EnableIRQ(LETIMER0_IRQn);
+
+
+    gpioLed0SetOn();
+    // enable interrupts for button
+    NVIC_EnableIRQ(GPIO_EVEN_IRQn);
+
 #else
     if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
           sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);

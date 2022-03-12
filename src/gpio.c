@@ -57,7 +57,7 @@ void init_GPIO() {
 	GPIO_PinModeSet(LED1_port, LED1_pin, gpioModePushPull, false);
 
 	// push button 0
-	GPIO_PinModeSet(PB0_PORT, PB0_PIN, gpioModePushPull, false);
+	GPIO_PinModeSet(PB0_PORT, PB0_PIN, gpioModeInput, 1);
 	GPIO_ExtIntConfig (PB0_PORT, PB0_PIN, PB0_PIN, true, true, true);
 
 }

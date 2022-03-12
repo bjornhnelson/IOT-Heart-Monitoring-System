@@ -72,7 +72,7 @@ void ble_boot_event();
 void ble_connection_opened_event(sl_bt_msg_t* evt);
 void ble_connection_closed_event();
 void ble_connection_parameters_event(sl_bt_msg_t* evt);
-void ble_external_signal_event();
+void ble_external_signal_event(sl_bt_msg_t* evt);
 void ble_system_soft_timer_event();
 
 // server events
