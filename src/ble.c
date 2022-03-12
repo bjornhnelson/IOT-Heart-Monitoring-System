@@ -12,6 +12,7 @@
 #include "ble_device_type.h"
 #include "scheduler.h"
 #include "math.h"
+#include "gpio.h"
 
 // enable logging for errors
 #define INCLUDE_LOG_DEBUG 1
@@ -334,6 +335,12 @@ void ble_connection_closed_event() {
 #if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION CLOSED");
 
+    status = sl_bt_sm_delete_bondings();
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_delete_bondings");
+    }
+
     ble_data.connectionOpen = false;
     ble_data.bonded = false;
 
@@ -387,10 +394,36 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 #if DEVICE_IS_BLE_SERVER
     //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
-    // nothing to do here, external events handled in temperature_state_machine()
-
-    if (evt->data.evt_system_external_signal.extsignals == EVENT_PB0_PRESSED) {
+    // handle pairing process
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true)) {
         LOG_INFO("PB0 Pressed");
+
+        status = sl_bt_sm_passkey_confirm(ble_data.serverConnectionHandle, 1);
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_sm_passkey_confirm");
+        }
+        ble_data.passkeyConfirm = false;
+    }
+
+    // convert bool to int
+    uint8_t button_state;
+    if (ble_data.pb0Pressed) {
+        button_state = 1;
+    }
+    else {
+        button_state = 0;
+    }
+
+    // whenever a change in button state occurs (pressed or released), update the GATT database
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0)) {
+
+        // parameters: attribute from gatt_db.h, value offset, array length, value
+        status = sl_bt_gatt_server_write_attribute_value(gattdb_button_state, 0, 1, &button_state);
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_gatt_server_write_attribute_value");
+        }
     }
 
 #else
@@ -424,10 +457,12 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
                 ble_data.tempIndicationsEnabled = false;
+                gpioLed0SetOff();
                 displayPrintf(DISPLAY_ROW_TEMPVALUE, ""); // remove temp value from LCD
             }
 
             if (client_config_flags == gatt_indication) {
+                gpioLed0SetOn();
                 ble_data.tempIndicationsEnabled = true;
             }
         }
@@ -457,7 +492,7 @@ void ble_server_sm_confirm_bonding_event() {
 
 void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
     if (ble_data.bonded == false) {
-        displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
+        displayPrintf(DISPLAY_ROW_PASSKEY, "%06d" , evt->data.evt_sm_passkey_display.passkey);
         displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
         ble_data.passkeyConfirm = true;
     }
@@ -470,7 +505,9 @@ void ble_server_sm_bonded_id() {
 }
 
 void ble_server_sm_bonding_failed_id() {
-
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonding Failed!");
+    displayPrintf(DISPLAY_ROW_PASSKEY, "");
+    displayPrintf(DISPLAY_ROW_ACTION, "");
 }
 
 // CLIENT EVENTS BELOW

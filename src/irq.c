@@ -78,10 +78,10 @@ void GPIO_EVEN_IRQHandler() {
 
     if (flags == (1 << 6)) {
         if (GPIO_PinInGet(PB0_PORT, PB0_PIN) == true) {
-            scheduler_set_event_PB0_pressed();
+            scheduler_set_event_PB0_released();
         }
         else {
-            scheduler_set_event_PB0_released();
+            scheduler_set_event_PB0_pressed();
         }
     }
 
