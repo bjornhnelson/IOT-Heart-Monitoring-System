@@ -12,6 +12,11 @@
 #ifndef SRC_GPIO_H_
 #define SRC_GPIO_H_
 
+#include "em_gpio.h"
+
+#define PB0_PORT gpioPortF
+#define PB0_PIN 6
+
 // Function prototypes
 void init_GPIO();
 void gpioLed0SetOn();

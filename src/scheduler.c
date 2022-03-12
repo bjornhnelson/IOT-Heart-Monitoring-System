@@ -69,6 +69,22 @@ void scheduler_set_event_I2C() {
     CORE_EXIT_CRITICAL();
 }
 
+void scheduler_set_event_PB0_pressed() {
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
+    displayPrintf(DISPLAY_ROW_9, "BUTTON PRESSED");
+    //sl_bt_external_signal(EVENT_PB0_PRESSED);
+    CORE_EXIT_CRITICAL();
+}
+
+void scheduler_set_event_PB0_released() {
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
+    displayPrintf(DISPLAY_ROW_9, "BUTTON RELEASED");
+    //sl_bt_external_signal(EVENT_PB0_RELEASED);
+    CORE_EXIT_CRITICAL();
+}
+
 // called by bluetooth stack functions, used to advance discovery state machine
 void scheduler_set_client_event(uint8_t event) {
     cur_client_event = event;

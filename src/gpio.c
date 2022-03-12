@@ -18,7 +18,6 @@
 // *****************************************************************************
 
 #include <stdbool.h>
-#include "em_gpio.h"
 #include <string.h>
 #include "gpio.h"
 
@@ -56,6 +55,10 @@ void init_GPIO() {
 	//GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthStrongAlternateStrong);
 	GPIO_DriveStrengthSet(LED1_port, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(LED1_port, LED1_pin, gpioModePushPull, false);
+
+	// push button 0
+	GPIO_PinModeSet(PB0_PORT, PB0_PIN, gpioModePushPull, false);
+	GPIO_ExtIntConfig (PB0_PORT, PB0_PIN, PB0_PIN, true, true, true);
 
 }
 

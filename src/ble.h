@@ -39,6 +39,11 @@ typedef struct {
     uint16_t latency;
     uint16_t timeout;
 
+    bool bonded;
+    bool pbIndicationsEnabled;
+    bool passkeyConfirm;
+    bool pb0Pressed;
+
     // values unique for client
     uint8_t clientConnectionHandle;
     uint32_t serviceHandle;

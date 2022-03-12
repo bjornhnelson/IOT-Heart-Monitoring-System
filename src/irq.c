@@ -15,6 +15,7 @@
 #include "em_core.h"
 #include "em_letimer.h"
 #include "em_i2c.h"
+#include "em_gpio.h"
 
 // enable logging
 //#define INCLUDE_LOG_DEBUG 1
@@ -63,6 +64,26 @@ void LETIMER0_IRQHandler() {
       LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1);
       scheduler_set_event_COMP1();
   }
+
+}
+
+// push button 0 interrupt service routine
+void GPIO_EVEN_IRQHandler() {
+
+    // get interrupts
+    uint32_t flags = GPIO_IntGetEnabled();
+
+    GPIO_IntClear(flags);
+
+
+    if (flags == (1 << 6)) {
+        if (GPIO_PinInGet(PB0_PORT, PB0_PIN) == true) {
+            scheduler_set_event_PB0_pressed();
+        }
+        else {
+            scheduler_set_event_PB0_released();
+        }
+    }
 
 }
 

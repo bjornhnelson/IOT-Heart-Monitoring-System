@@ -16,6 +16,8 @@ typedef enum {
     EVENT_MEASURE_TEMP,
     EVENT_TIMER_EXPIRED,
     EVENT_I2C_DONE,
+    EVENT_PB0_PRESSED,
+    EVENT_PB0_RELEASED
 } server_events_t;
 
 typedef enum {
@@ -47,6 +49,10 @@ void scheduler_set_event_UF();
 void scheduler_set_event_COMP1();
 
 void scheduler_set_event_I2C();
+
+void scheduler_set_event_PB0_pressed();
+
+void scheduler_set_event_PB0_released();
 
 void scheduler_set_client_event(uint8_t event);
 

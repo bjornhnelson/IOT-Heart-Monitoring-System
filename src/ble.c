@@ -135,6 +135,26 @@ void ble_boot_event() {
 #if DEVICE_IS_BLE_SERVER
     //LOG_INFO("SYSTEM BOOT");
 
+    status = sl_bt_sm_delete_bondings();
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_delete_bondings");
+    }
+
+    ble_data.bonded = false;
+    ble_data.pb0Pressed = false;
+    ble_data.passkeyConfirm = false;
+
+    // store bonding config???
+
+    // initialize the security manager
+    uint8_t flags = 0x0F; // Bonding requires MITM protection, Encryption requires bonding, Secure connections only, Bonding requests need to be confirmed
+    status = sl_bt_sm_configure(flags, sm_io_capability_displayyesno);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_configure");
+    }
+
     uint8_t myAddressType;
 
     // Returns the unique BT device address
@@ -315,6 +335,7 @@ void ble_connection_closed_event() {
     //LOG_INFO("CONNECTION CLOSED");
 
     ble_data.connectionOpen = false;
+    ble_data.bonded = false;
 
     // Tells the device to start sending advertising packets
     status = sl_bt_advertiser_start(ble_data.advertisingSetHandle, sl_bt_advertiser_general_discoverable, sl_bt_advertiser_connectable_scannable);
@@ -419,6 +440,33 @@ void ble_server_indication_timeout_event() {
     //LOG_INFO("INDICATION TIMEOUT OCCURRED");
 
     ble_data.indicationInFlight = false;
+}
+
+void ble_server_sm_confirm_bonding_event() {
+    status = sl_bt_sm_bonding_confirm(ble_data.serverConnectionHandle, 1);
+    LOG_INFO("CONFIRM BONDING EVENT");
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_bonding_confirm");
+    }
+}
+
+void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
+    if (ble_data.bonded == false) {
+        displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
+        displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
+        ble_data.passkeyConfirm = true;
+    }
+}
+
+void ble_server_sm_bonded_id() {
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
+    displayPrintf(DISPLAY_ROW_PASSKEY, "");
+    displayPrintf(DISPLAY_ROW_ACTION, "");
+}
+
+void ble_server_sm_bonding_failed_id() {
+
 }
 
 // CLIENT EVENTS BELOW
@@ -535,6 +583,33 @@ void handle_ble_event(sl_bt_msg_t* evt) {
         case sl_bt_evt_gatt_server_indication_timeout_id:
             ble_server_indication_timeout_event();
             break;
+
+        // new a8 cases
+        case sl_bt_evt_sm_confirm_bonding_id:
+            ble_server_sm_confirm_bonding_event();
+            break;
+
+        case sl_bt_evt_sm_confirm_passkey_id:
+            ble_server_sm_confirm_passkey_id(evt);
+            break;
+
+        /*case sl_bt_evt_system_external_signal_id:
+            break;*/
+
+        case sl_bt_evt_sm_bonded_id:
+            ble_server_sm_bonded_id();
+            break;
+
+        case sl_bt_evt_sm_bonding_failed_id:
+            ble_server_sm_bonding_failed_id();
+            break;
+
+        // APIs
+            /*sl_bt_sm_delete_bondings()
+            sl_bt_sm_configure(flags, sm_io_capability_displayyesno)
+            sl_bt_sm_bonding_confirm() sl_bt_sm_passkey_confirm()
+            sl_bt_gatt_server_write_attribute_value(button_state)*/
+
 
         // events just for clients
         case sl_bt_evt_scanner_scan_report_id:
