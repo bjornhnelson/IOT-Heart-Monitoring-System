@@ -36,7 +36,6 @@ typedef struct {
 queue_struct_t   my_queue[QUEUE_DEPTH]; // the queue
 uint32_t         wptr = 0;              // write pointer
 uint32_t         rptr = 0;              // read pointer
-
 int num_queue_entries = 0; // how many elements are in the buffer
 
 
@@ -54,7 +53,7 @@ static uint32_t nextPtr(uint32_t ptr) {
       return ptr + 1; // advance by 1
   }
 
-} // nextPtr()
+}
 
 
 // status check for enqueuing
@@ -100,7 +99,7 @@ bool write_queue(uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
 
   return false;
 
-} // write_queue()
+}
 
 
 // ---------------------------------------------------------------------
@@ -128,7 +127,7 @@ bool read_queue(uint16_t* charHandle, size_t* bufferLength, uint8_t* buffer) {
 
   return false;
 
-} // read_queue()
+}
 
 
 // END OF CIRCULAR BUFFER CODE
@@ -140,7 +139,7 @@ bool read_queue(uint16_t* charHandle, size_t* bufferLength, uint8_t* buffer) {
 // 3268 = 0.1 sec = 100 ms
 // 1635 = 50 ms
 // 327 = 0.01 sec = 10 ms
-#define QUEUE_TIMER_INTERVAL 1635 // 0.5 seconds - 16339
+#define QUEUE_TIMER_INTERVAL 1635
 
 sl_status_t status; // return variable for various api calls
 
@@ -200,7 +199,7 @@ static bool addressesMatch(bd_addr a1, bd_addr a2) {
             (a1.addr[5] == a2.addr[5]));
 }
 
-// called by state machine to send push button indications to client
+// called by external signal to send push button indications to client
 void ble_transmit_button_state() {
 
     uint8_t pb_buffer[2];
@@ -730,6 +729,7 @@ void ble_server_indication_timeout_event() {
     ble_data.indicationInFlight = false;
 }
 
+// accepts the bonding request
 void ble_server_sm_confirm_bonding_event() {
     status = sl_bt_sm_bonding_confirm(ble_data.serverConnectionHandle, 1);
 
@@ -738,6 +738,11 @@ void ble_server_sm_confirm_bonding_event() {
     }
 }
 
+/*
+ * display passkey message on LCD
+ *
+ * evt = event that occurred
+ */
 void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
     if (ble_data.bonded == false) {
         displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
@@ -746,6 +751,7 @@ void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
     }
 }
 
+// displays bonding success message on LCD
 void ble_server_sm_bonded_id() {
     ble_data.bonded = true;
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
@@ -753,6 +759,7 @@ void ble_server_sm_bonded_id() {
     displayPrintf(DISPLAY_ROW_ACTION, "");
 }
 
+// displays bonding failure message on LCD
 void ble_server_sm_bonding_failed_id() {
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonding Failed!");
     displayPrintf(DISPLAY_ROW_PASSKEY, "");

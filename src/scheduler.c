@@ -69,6 +69,7 @@ void scheduler_set_event_I2C() {
     CORE_EXIT_CRITICAL();
 }
 
+// signals to bluetooth stack that external event occurred (button 0 pressed)
 void scheduler_set_event_PB0_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
@@ -79,6 +80,7 @@ void scheduler_set_event_PB0_pressed() {
     CORE_EXIT_CRITICAL();
 }
 
+// signals to bluetooth stack that external event occurred (button 0 released)
 void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();

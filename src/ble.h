@@ -79,6 +79,10 @@ void ble_system_soft_timer_event();
 // server events
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
 void ble_server_indication_timeout_event();
+void ble_server_sm_confirm_bonding_event();
+void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt);
+void ble_server_sm_bonded_id();
+void ble_server_sm_bonding_failed_id();
 
 // client events
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt);
