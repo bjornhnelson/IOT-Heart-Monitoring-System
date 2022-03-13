@@ -42,7 +42,7 @@ static uuid_t htm_characteristic = {
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
     cur_client_state = STATE_AWAITING_CONNECTION;
-    LOG_INFO("Scheduler started");
+    //LOG_INFO("Scheduler started");
 }
 
 // signals to bluetooth stack that external event occurred (3 second timer elapsed)

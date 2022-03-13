@@ -91,11 +91,8 @@ bool write_queue(uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
   my_queue[wptr].charHandle = charHandle;
   my_queue[wptr].bufferLength = bufferLength;
 
-  LOG_INFO("Enqueue at index=%d, len=%d", wptr, bufferLength);
-  LOG_INFO("Buf: %d %d %d %d %d", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
   for (int i=0; i<5; i++) {
       my_queue[wptr].buffer[i] = buffer[i];
-      //LOG_INFO("Char %d: %d", i, buffer[i]);
   }
 
   wptr = nextPtr(wptr);
@@ -123,11 +120,8 @@ bool read_queue(uint16_t* charHandle, size_t* bufferLength, uint8_t* buffer) {
   *bufferLength = my_queue[rptr].bufferLength;
 
   for (int i=0; i<5; i++) {
-      LOG_INFO("CHECK: %d", my_queue[rptr].buffer[i]);
       buffer[i] = my_queue[rptr].buffer[i];
   }
-  LOG_INFO("Dequeue from index=%d, len=%d", rptr, *bufferLength);
-  LOG_INFO("Buf: %d %d %d %d %d", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
 
   rptr = nextPtr(rptr);
   num_queue_entries--;
@@ -226,7 +220,6 @@ void ble_transmit_button_state() {
                     pb_buffer // value
                     );
 
-            LOG_INFO("BUTTON %d INDICATION", ble_data.pb0Pressed);
 
             if (status != SL_STATUS_OK) {
                 LOG_ERROR("PB sl_bt_gatt_server_send_indication");
@@ -236,11 +229,10 @@ void ble_transmit_button_state() {
             }
         }
         else { // put into circular buffer, send later
-
-            LOG_INFO("BUTTON %d INDICATION DELAYED****", ble_data.pb0Pressed);
+            CORE_DECLARE_IRQ_STATE;
+            CORE_ENTER_CRITICAL();
             write_queue(gattdb_button_state, 2, pb_buffer);
-
-            LOG_INFO("---");
+            CORE_EXIT_CRITICAL();
         }
     }
 }
@@ -253,6 +245,7 @@ void ble_transmit_temp() {
 
     uint8_t flags = 0x00;
     uint8_t temperature_in_c = get_temp();
+    displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
 
     // convert into IEEE-11073 32-bit floating point value
     uint32_t temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
@@ -270,6 +263,8 @@ void ble_transmit_temp() {
             4, // length
             &temperature_in_c // pointer to value
             );
+
+    temperature_in_c += 5;
 
     if (status != SL_STATUS_OK) {
         LOG_ERROR("TEMP sl_bt_gatt_server_write_attribute_value");
@@ -293,13 +288,12 @@ void ble_transmit_temp() {
             else {
                 ble_data.indicationInFlight = true;
             }
-
-            // show temperature on LCD
-            // TODO: figure out when to call this from soft timer
-            displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
         }
         else { // put into circular buffer, send later
+            CORE_DECLARE_IRQ_STATE;
+            CORE_ENTER_CRITICAL();
             write_queue(gattdb_temperature_measurement, 5, temperature_buffer);
+            CORE_EXIT_CRITICAL();
         }
     }
 }
@@ -321,8 +315,6 @@ void ble_boot_event() {
     ble_data.bonded = false;
     ble_data.pb0Pressed = false;
     ble_data.passkeyConfirm = false;
-
-    // store bonding config???
 
     // initialize the security manager
     uint8_t flags = 0x0F; // Bonding requires MITM protection, Encryption requires bonding, Secure connections only, Bonding requests need to be confirmed
@@ -430,7 +422,7 @@ void ble_boot_event() {
     displayInit();
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A7");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A8");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
 
@@ -634,9 +626,9 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
     uint8_t buffer[5];
     buffer[0] = 0; // set flags
 
-    // every 0.5 seconds
+    // every 50 ms
     if (evt->data.evt_system_soft_timer.handle == QUEUE_HANDLE) {
-        // LOG_INFO("Soft Timer 1");
+        // LOG_INFO("Soft Timer 2");
 
         /*
          * check the queue for pending indications
@@ -646,8 +638,10 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
          */
 
          if ((num_queue_entries > 0) && !(ble_data.indicationInFlight)) {
-             LOG_INFO("SEND FROM QUEUE");
+             CORE_DECLARE_IRQ_STATE;
+             CORE_ENTER_CRITICAL();
              read_queue (&charHandle, &bufferLength, buffer);
+             CORE_EXIT_CRITICAL();
 
              status = sl_bt_gatt_server_send_indication(
                      ble_data.serverConnectionHandle,
@@ -660,11 +654,8 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
                  LOG_ERROR("QUEUE sl_bt_gatt_server_send_indication");
              }
              else {
-                 LOG_INFO("QUEUE INDICATION SENT: charHandle=%d, len=%d value= %d %d", charHandle, bufferLength, buffer[0], buffer[1]);
                  ble_data.indicationInFlight = true;
              }
-
-             LOG_INFO("___");
 
          }
 
