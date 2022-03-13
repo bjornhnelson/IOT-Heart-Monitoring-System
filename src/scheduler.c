@@ -72,6 +72,7 @@ void scheduler_set_event_I2C() {
 void scheduler_set_event_PB0_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
+    //LOG_INFO("BUTTON PRESSED");
     displayPrintf(DISPLAY_ROW_9, "Button Pressed");
     get_ble_data_ptr()->pb0Pressed = true;
     sl_bt_external_signal(EVENT_PB0);
@@ -81,6 +82,7 @@ void scheduler_set_event_PB0_pressed() {
 void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
+    //LOG_INFO("BUTTON RELEASED");
     displayPrintf(DISPLAY_ROW_9, "Button Released");
     get_ble_data_ptr()->pb0Pressed = false;
     sl_bt_external_signal(EVENT_PB0);

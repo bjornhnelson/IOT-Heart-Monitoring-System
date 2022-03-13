@@ -80,7 +80,7 @@ bool queue_empty() {
 // This function writes an entry to the queue.
 // Returns false if successful or true if writing to a full fifo.
 // ---------------------------------------------------------------------
-bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
+bool write_queue(uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
 
   // nothing enqueued, fifo full
   if (queue_full()) {
@@ -91,8 +91,11 @@ bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
   my_queue[wptr].charHandle = charHandle;
   my_queue[wptr].bufferLength = bufferLength;
 
+  LOG_INFO("Enqueue at index=%d, len=%d", wptr, bufferLength);
+  LOG_INFO("Buf: %d %d %d %d %d", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
   for (int i=0; i<5; i++) {
       my_queue[wptr].buffer[i] = buffer[i];
+      //LOG_INFO("Char %d: %d", i, buffer[i]);
   }
 
   wptr = nextPtr(wptr);
@@ -108,7 +111,7 @@ bool write_queue (uint16_t charHandle, size_t bufferLength, uint8_t* buffer) {
 // This function reads an entry from the queue.
 // Returns false if successful or true if reading from an empty fifo.
 // ---------------------------------------------------------------------
-bool read_queue (uint16_t* charHandle, size_t* bufferLength, uint8_t** buffer) {
+bool read_queue(uint16_t* charHandle, size_t* bufferLength, uint8_t* buffer) {
 
   // nothing dequeued, fifo empty
   if (queue_empty()) {
@@ -118,7 +121,13 @@ bool read_queue (uint16_t* charHandle, size_t* bufferLength, uint8_t** buffer) {
   // element dequeued
   *charHandle = my_queue[rptr].charHandle;
   *bufferLength = my_queue[rptr].bufferLength;
-  *buffer = my_queue[rptr].buffer;
+
+  for (int i=0; i<5; i++) {
+      LOG_INFO("CHECK: %d", my_queue[rptr].buffer[i]);
+      buffer[i] = my_queue[rptr].buffer[i];
+  }
+  LOG_INFO("Dequeue from index=%d, len=%d", rptr, *bufferLength);
+  LOG_INFO("Buf: %d %d %d %d %d", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
 
   rptr = nextPtr(rptr);
   num_queue_entries--;
@@ -133,7 +142,11 @@ bool read_queue (uint16_t* charHandle, size_t* bufferLength, uint8_t** buffer) {
 
 // 2nd soft timer setup
 #define QUEUE_HANDLE 3
-#define QUEUE_TIMER_INTERVAL 8000 // 0.5 seconds - 16339
+
+// 3268 = 0.1 sec = 100 ms
+// 1635 = 50 ms
+// 327 = 0.01 sec = 10 ms
+#define QUEUE_TIMER_INTERVAL 1635 // 0.5 seconds - 16339
 
 sl_status_t status; // return variable for various api calls
 
@@ -210,8 +223,10 @@ void ble_transmit_button_state() {
                     ble_data.serverConnectionHandle,
                     gattdb_button_state, // characteristic from gatt_db.h
                     2, // value length
-                    &pb_buffer[0] // value
+                    pb_buffer // value
                     );
+
+            LOG_INFO("BUTTON %d INDICATION", ble_data.pb0Pressed);
 
             if (status != SL_STATUS_OK) {
                 LOG_ERROR("PB sl_bt_gatt_server_send_indication");
@@ -221,7 +236,11 @@ void ble_transmit_button_state() {
             }
         }
         else { // put into circular buffer, send later
+
+            LOG_INFO("BUTTON %d INDICATION DELAYED****", ble_data.pb0Pressed);
             write_queue(gattdb_button_state, 2, pb_buffer);
+
+            LOG_INFO("---");
         }
     }
 }
@@ -265,7 +284,7 @@ void ble_transmit_temp() {
                     ble_data.serverConnectionHandle,
                     gattdb_temperature_measurement, // characteristic from gatt_db.h
                     5, // value length
-                    &temperature_buffer[0] // value
+                    temperature_buffer // value
                     );
 
             if (status != SL_STATUS_OK) {
@@ -627,22 +646,25 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
          */
 
          if ((num_queue_entries > 0) && !(ble_data.indicationInFlight)) {
-             read_queue (&charHandle, &bufferLength, ((uint8_t**) &buffer));
+             LOG_INFO("SEND FROM QUEUE");
+             read_queue (&charHandle, &bufferLength, buffer);
 
              status = sl_bt_gatt_server_send_indication(
                      ble_data.serverConnectionHandle,
                      charHandle, // characteristic from gatt_db.h
                      bufferLength, // value length
-                     &buffer[0] // value
+                     buffer // value
                      );
 
              if (status != SL_STATUS_OK) {
                  LOG_ERROR("QUEUE sl_bt_gatt_server_send_indication");
              }
              else {
-                 LOG_INFO("QUEUE INDICATION SENT: charHandle=%d, len=%d value=%d", charHandle, bufferLength, buffer[1]);
+                 LOG_INFO("QUEUE INDICATION SENT: charHandle=%d, len=%d value= %d %d", charHandle, bufferLength, buffer[0], buffer[1]);
                  ble_data.indicationInFlight = true;
              }
+
+             LOG_INFO("___");
 
          }
 
