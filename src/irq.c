@@ -76,12 +76,32 @@ void GPIO_EVEN_IRQHandler() {
     GPIO_IntClear(flags);
 
 
-    if (flags == (1 << 6)) {
+    if (flags == (1 << PB0_PIN)) {
         if (GPIO_PinInGet(PB0_PORT, PB0_PIN) == true) {
             scheduler_set_event_PB0_released();
         }
         else {
             scheduler_set_event_PB0_pressed();
+        }
+    }
+
+}
+
+// push button 0 interrupt service routine
+void GPIO_ODD_IRQHandler() {
+
+    // get interrupts
+    uint32_t flags = GPIO_IntGetEnabled();
+
+    GPIO_IntClear(flags);
+
+
+    if (flags == (1 << PB1_PIN)) {
+        if (GPIO_PinInGet(PB1_PORT, PB1_PIN) == true) {
+            scheduler_set_event_PB1_released();
+        }
+        else {
+            scheduler_set_event_PB1_pressed();
         }
     }
 

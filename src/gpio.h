@@ -17,6 +17,9 @@
 #define PB0_PORT gpioPortF
 #define PB0_PIN 6
 
+#define PB1_PORT gpioPortF
+#define PB1_PIN 7
+
 // Function prototypes
 void init_GPIO();
 void gpioLed0SetOn();

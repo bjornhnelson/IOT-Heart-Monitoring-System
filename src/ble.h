@@ -43,22 +43,24 @@ typedef struct {
     bool pbIndicationsEnabled;
     bool passkeyConfirm;
     bool pb0Pressed;
+    bool pb1Pressed;
 
     // values unique for client
     uint8_t clientConnectionHandle;
-    uint32_t serviceHandle;
-    uint16_t characteristicHandle;
+    uint32_t htmServiceHandle;
+    uint16_t htmCharacteristicHandle;
+    uint32_t pbServiceHandle;
+    uint16_t pbCharacteristicHandle;
     uint8array characteristicValue;
     bd_addr clientAddress;
     bd_addr serverAddress;
     int32_t tempValue;
 
-
 } ble_data_struct_t;
 
 // data structure for storing UUIDs
 typedef struct {
-    uint8_t data[2];
+    uint8_t data[16];
     uint8_t len;
 } uuid_t;
 

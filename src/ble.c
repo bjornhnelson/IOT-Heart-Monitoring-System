@@ -362,7 +362,7 @@ void ble_boot_event() {
     displayInit(); // starts a 1 second soft timer
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A8");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A9");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
 
@@ -421,7 +421,7 @@ void ble_boot_event() {
     displayInit();
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A8");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A9");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
 
@@ -525,6 +525,9 @@ void ble_connection_closed_event() {
         LOG_ERROR("sl_bt_advertiser_start");
     }
 
+    gpioLed0SetOff();
+    gpioLed1SetOff();
+
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
@@ -537,6 +540,9 @@ void ble_connection_closed_event() {
     if (status != SL_STATUS_OK) {
         LOG_ERROR("sl_bt_scanner_start");
     }
+
+    gpioLed0SetOff();
+    gpioLed1SetOff();
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
@@ -603,7 +609,11 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
     }
 
 #else
-    // nothing to do for client
+
+    // Just a trick to hide a compiler warning about unused input parameter evt.
+    (void) evt;
+
+
 #endif
 
 }
@@ -661,7 +671,12 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
     }
 
 #else
-    displayUpdate(); // prevent charge buildup
+    // every 1 second
+    if (evt->data.evt_system_soft_timer.handle == LCD_HANDLE) {
+        // LOG_INFO("Soft Timer 1");
+
+        displayUpdate(); // prevent charge buildup on LCD
+    }
 #endif
 }
 
@@ -803,12 +818,12 @@ void ble_client_gatt_procedure_completed_event() {
 
 // saves the handle of the health thermometer service
 void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
-    ble_data.serviceHandle = evt->data.evt_gatt_service.service;
+    ble_data.htmServiceHandle = evt->data.evt_gatt_service.service;
 }
 
 // saves the handle of the health thermometer characteristic
 void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
-    ble_data.characteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+    ble_data.htmCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
 }
 
 // saves temperature value in indication
@@ -816,7 +831,7 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
     // if char handle and opcode is expected, save value and send confirmation
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
-            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.characteristicHandle)) {
+            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.htmCharacteristicHandle)) {
 
         ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
 

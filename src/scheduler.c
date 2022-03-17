@@ -38,6 +38,18 @@ static uuid_t htm_characteristic = {
     .len = 2
 };
 
+// UUID = 00000001-38c8-433e-87ec-652a2d136289
+static uuid_t pb_service = {
+    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x01, 0x00, 0x00, 0x00}, // little endian
+    .len = 16
+};
+
+// UUID = 00000002-38c8-433e-87ec-652a2d136289
+static uuid_t pb_characteristic = {
+    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x02, 0x00, 0x00, 0x00}, // little endian
+    .len = 16
+};
+
 // resets the data structures at initialization
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
@@ -88,6 +100,28 @@ void scheduler_set_event_PB0_released() {
     displayPrintf(DISPLAY_ROW_9, "Button Released");
     get_ble_data_ptr()->pb0Pressed = false;
     sl_bt_external_signal(EVENT_PB0);
+    CORE_EXIT_CRITICAL();
+}
+
+// signals to bluetooth stack that external event occurred (button 1 pressed)
+void scheduler_set_event_PB1_pressed() {
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
+    //LOG_INFO("BUTTON PRESSED");
+    //displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+    get_ble_data_ptr()->pb1Pressed = true;
+    //sl_bt_external_signal(EVENT_PB0);
+    CORE_EXIT_CRITICAL();
+}
+
+// signals to bluetooth stack that external event occurred (button 1 released)
+void scheduler_set_event_PB1_released() {
+    CORE_DECLARE_IRQ_STATE;
+    CORE_ENTER_CRITICAL();
+    //LOG_INFO("BUTTON RELEASED");
+    //displayPrintf(DISPLAY_ROW_9, "Button Released");
+    get_ble_data_ptr()->pb1Pressed = false;
+    //sl_bt_external_signal(EVENT_PB0);
     CORE_EXIT_CRITICAL();
 }
 
@@ -265,73 +299,114 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
     sl_status_t status;
 
-    // Just a trick to hide a compiler warning about unused input parameter evt.
-    (void) evt;
-
     // initially assume system will remain in current state
     uint8_t next_state = cur_client_state;
+
+    // handle connection closed case
+    if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_closed_id) {
+        cur_client_state = STATE_AWAITING_CONNECTION;
+        return;
+    }
 
     switch (cur_client_state) {
         case STATE_AWAITING_CONNECTION:
 
-            if (cur_client_event == EVENT_CONNECTION_OPENED) { // open event
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_connection_opened_id) { // open event
 
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, htm_service.len, htm_service.data);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_discover_primary_services_by_uuid: %d", status);
+                    LOG_ERROR("HTM sl_bt_gatt_discover_primary_services_by_uuid");
                 }
 
-                next_state = STATE_SERVICE_DISCOVERY;
+                next_state = STATE_HTM_SERVICE_DISCOVERY;
             }
         break;
 
-        case STATE_SERVICE_DISCOVERY:
+        case STATE_HTM_SERVICE_DISCOVERY:
 
-            if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) { // service has been found
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // HTM service has been found
 
-                status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->serviceHandle, htm_characteristic.len, htm_characteristic.data);
+                status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->htmServiceHandle, htm_characteristic.len, htm_characteristic.data);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_discover_characteristics_by_uuid");
+                    LOG_ERROR("HTM sl_bt_gatt_discover_characteristics_by_uuid");
                 }
 
-                cur_client_event = EVENT_CLIENT_IDLE;
-                next_state = STATE_CHARACTERISTIC_DISCOVERY;
-            }
-
-            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                next_state = STATE_AWAITING_CONNECTION;
+                next_state = STATE_HTM_CHARACTERISTIC_DISCOVERY;
             }
         break;
 
-        case STATE_CHARACTERISTIC_DISCOVERY:
+        case STATE_HTM_CHARACTERISTIC_DISCOVERY:
 
-            if (cur_client_event == EVENT_GATT_PROCEDURE_COMPLETED) { // characteristic has been found
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // HTM characteristic has been found
 
-                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->characteristicHandle, sl_bt_gatt_indication);
+                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->htmCharacteristicHandle, sl_bt_gatt_indication);
 
                 if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification");
+                    LOG_ERROR("HTM sl_bt_gatt_set_characteristic_notification");
                 }
+
+                next_state = STATE_HTM_ENABLING_INDICATIONS;
+            }
+        break;
+
+        case STATE_HTM_ENABLING_INDICATIONS:
+
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // HTM indications have been enabled
+
+                status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, pb_service.len, pb_service.data);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("PB sl_bt_gatt_discover_primary_services_by_uuid");
+                }
+
+                //displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
+                next_state = STATE_PB_SERVICE_DISCOVERY;
+            }
+        break;
+
+        case STATE_PB_SERVICE_DISCOVERY:
+
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB service has been found
+
+                status = sl_bt_gatt_discover_characteristics_by_uuid(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->pbServiceHandle, pb_characteristic.len, pb_characteristic.data);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("PB sl_bt_gatt_discover_characteristics_by_uuid");
+                }
+
+                next_state = STATE_PB_CHARACTERISTIC_DISCOVERY;
+
+            }
+        break;
+
+        case STATE_PB_CHARACTERISTIC_DISCOVERY:
+
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB characteristic has been found
+
+                status = sl_bt_gatt_set_characteristic_notification(get_ble_data_ptr()->clientConnectionHandle, get_ble_data_ptr()->pbCharacteristicHandle, sl_bt_gatt_indication);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("PB sl_bt_gatt_set_characteristic_notification");
+                }
+
+                next_state = STATE_PB_ENABLING_INDICATIONS;
+            }
+        break;
+
+        case STATE_PB_ENABLING_INDICATIONS:
+
+            if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB indications have been enabled
 
                 displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
 
-                cur_client_event = EVENT_CLIENT_IDLE;
-                next_state = STATE_RECEIVING_INDICATIONS;
-            }
-
-            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                next_state = STATE_AWAITING_CONNECTION;
+                next_state = STATE_DISCOVERED;
             }
         break;
 
-        case STATE_RECEIVING_INDICATIONS:
-
-            // do nothing else, keep receiving indications until receiving close event
-            if (cur_client_event == EVENT_CONNECTION_CLOSED) {
-                next_state = STATE_AWAITING_CONNECTION;
-            }
+        case STATE_DISCOVERED:
+            // do nothing else, keep receiving indications until close event happens
         break;
 
     }

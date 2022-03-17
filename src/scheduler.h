@@ -37,9 +37,13 @@ typedef enum {
 
 typedef enum {
     STATE_AWAITING_CONNECTION,
-    STATE_SERVICE_DISCOVERY,
-    STATE_CHARACTERISTIC_DISCOVERY,
-    STATE_RECEIVING_INDICATIONS,
+    STATE_HTM_SERVICE_DISCOVERY,
+    STATE_HTM_CHARACTERISTIC_DISCOVERY,
+    STATE_HTM_ENABLING_INDICATIONS,
+    STATE_PB_SERVICE_DISCOVERY,
+    STATE_PB_CHARACTERISTIC_DISCOVERY,
+    STATE_PB_ENABLING_INDICATIONS,
+    STATE_DISCOVERED,
 } client_states_t;
 
 void init_scheduler();
@@ -53,6 +57,10 @@ void scheduler_set_event_I2C();
 void scheduler_set_event_PB0_pressed();
 
 void scheduler_set_event_PB0_released();
+
+void scheduler_set_event_PB1_pressed();
+
+void scheduler_set_event_PB1_released();
 
 void scheduler_set_client_event(uint8_t event);
 
