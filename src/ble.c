@@ -145,6 +145,31 @@ sl_status_t status; // return variable for various api calls
 
 ble_data_struct_t ble_data; // // BLE private data
 
+// UUID = 1809
+uuid_t htm_service = {
+    .data = {0x09, 0x18}, // little endian
+    .len = 2
+};
+
+// UUID = 2A1C
+uuid_t htm_characteristic = {
+    .data = {0x1C, 0x2A}, // little endian
+    .len = 2
+};
+
+// UUID = 00000001-38c8-433e-87ec-652a2d136289
+uuid_t pb_service = {
+    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x01, 0x00, 0x00, 0x00}, // little endian
+    .len = 16
+};
+
+// UUID = 00000002-38c8-433e-87ec-652a2d136289
+uuid_t pb_characteristic = {
+    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x02, 0x00, 0x00, 0x00}, // little endian
+    .len = 16
+};
+
+
 // provides access to bluetooth data structure for other .c files
 ble_data_struct_t* get_ble_data_ptr() {
     return (&ble_data);
@@ -372,6 +397,25 @@ void ble_boot_event() {
 
 #else
 
+    status = sl_bt_sm_delete_bondings();
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_delete_bondings");
+    }
+
+    ble_data.bonded = false;
+    ble_data.pb0Pressed = false;
+    ble_data.pb1Pressed = false;
+    ble_data.passkeyConfirm = false;
+
+    // initialize the security manager
+    uint8_t flags = 0x0F; // Bonding requires MITM protection, Encryption requires bonding, Secure connections only, Bonding requests need to be confirmed
+    status = sl_bt_sm_configure(flags, sm_io_capability_displayyesno);
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_configure");
+    }
+
     // save server address
     bd_addr server_addr  = SERVER_BT_ADDRESS;
 
@@ -490,9 +534,10 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
     }
 
 #else
-    scheduler_set_client_event(EVENT_CONNECTION_OPENED);
+    //scheduler_set_client_event(EVENT_CONNECTION_OPENED);
 
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
+    LOG_INFO("Client connection handle: %d", ble_data.clientConnectionHandle);
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
     displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
@@ -532,7 +577,13 @@ void ble_connection_closed_event() {
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
 #else
-    scheduler_set_client_event(EVENT_CONNECTION_CLOSED);
+    //scheduler_set_client_event(EVENT_CONNECTION_CLOSED);
+
+    status = sl_bt_sm_delete_bondings();
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("sl_bt_sm_delete_bondings");
+    }
 
     uint8_t phys = 1;
     status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
@@ -558,7 +609,7 @@ void ble_connection_parameters_event(sl_bt_msg_t* evt) {
     // Just a trick to hide a compiler warning about unused input parameter evt.
     (void) evt;
 
-    //LOG_INFO("CONNECTION PARAMETERS CHANGED");
+    LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
     // log interval, latency, and timeout values from **client**
     /*LOG_INFO("interval = %d, latency = %d, timeout = %d",
@@ -610,9 +661,32 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
 #else
 
-    // Just a trick to hide a compiler warning about unused input parameter evt.
-    (void) evt;
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB1) & !ble_data.pb0Pressed) {
 
+        // TODO: add check for if read already in flight, ignore 2nd press
+        status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_gatt_read_characteristic_value: %d", status);
+        }
+    }
+
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB1) & ble_data.pb0Pressed) {
+        // set a flag
+
+    }
+
+    // handle pairing process
+    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true) && ble_data.pb0Pressed) {
+        status = sl_bt_sm_passkey_confirm(ble_data.clientConnectionHandle, 1);
+        LOG_INFO("PASSKEY CONFIRM");
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_sm_passkey_confirm");
+        }
+
+        ble_data.passkeyConfirm = false;
+    }
 
 #endif
 
@@ -679,6 +753,44 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
     }
 #endif
 }
+
+/*
+ * display passkey message on LCD
+ *
+ * evt = event that occurred
+ */
+void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
+    LOG_INFO("PASSKEY CONFIRM EVENT");
+#if DEVICE_IS_BLE_SERVER
+    if (ble_data.bonded == false) {
+        displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
+        displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
+        ble_data.passkeyConfirm = true;
+    }
+#else
+    displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
+    displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
+    ble_data.passkeyConfirm = true;
+#endif
+}
+
+// displays bonding success message on LCD
+void ble_sm_bonded_id() {
+    LOG_INFO("BONDED EVENT");
+    ble_data.bonded = true;
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
+    displayPrintf(DISPLAY_ROW_PASSKEY, "");
+    displayPrintf(DISPLAY_ROW_ACTION, "");
+}
+
+// displays bonding failure message on LCD
+void ble_sm_bonding_failed_id() {
+    LOG_INFO("BONDING FAILED EVENT");
+    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonding Failed!");
+    displayPrintf(DISPLAY_ROW_PASSKEY, "");
+    displayPrintf(DISPLAY_ROW_ACTION, "");
+}
+
 
 // SERVER EVENTS BELOW
 
@@ -753,33 +865,6 @@ void ble_server_sm_confirm_bonding_event() {
     }
 }
 
-/*
- * display passkey message on LCD
- *
- * evt = event that occurred
- */
-void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
-    if (ble_data.bonded == false) {
-        displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
-        displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
-        ble_data.passkeyConfirm = true;
-    }
-}
-
-// displays bonding success message on LCD
-void ble_server_sm_bonded_id() {
-    ble_data.bonded = true;
-    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
-    displayPrintf(DISPLAY_ROW_PASSKEY, "");
-    displayPrintf(DISPLAY_ROW_ACTION, "");
-}
-
-// displays bonding failure message on LCD
-void ble_server_sm_bonding_failed_id() {
-    displayPrintf(DISPLAY_ROW_CONNECTION, "Bonding Failed!");
-    displayPrintf(DISPLAY_ROW_PASSKEY, "");
-    displayPrintf(DISPLAY_ROW_ACTION, "");
-}
 
 // CLIENT EVENTS BELOW
 
@@ -811,19 +896,58 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 }
 
 // notifies scheduler that a GATT procedure has been completed
-void ble_client_gatt_procedure_completed_event() {
-    //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED");
-    scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
+void ble_client_gatt_procedure_completed_event(sl_bt_msg_t* evt) {
+
+    //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED: %d", evt->data.evt_gatt_procedure_completed.result);
+    //scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
+
+    status = evt->data.evt_gatt_procedure_completed.result;
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("GATT procedure completed error: %d", status);
+    }
+
+    if (status == 0x110F) { // insufficient encryption case, first time pressing PB1
+        LOG_INFO("GATT CHECK!");
+        status = sl_bt_sm_increase_security(ble_data.clientConnectionHandle);
+
+        if (status != SL_STATUS_OK) {
+            LOG_ERROR("sl_bt_sm_increase_security: %d", status);
+        }
+    }
+
 }
 
-// saves the handle of the health thermometer service
+// saves the handle of the services
 void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
-    ble_data.htmServiceHandle = evt->data.evt_gatt_service.service;
+
+    //LOG_INFO("GATT Service Event ***");
+
+    // check if match with HTM service
+    if (memcmp(evt->data.evt_gatt_service.uuid.data, htm_service.data, htm_service.len) == 0) {
+        ble_data.htmServiceHandle = evt->data.evt_gatt_service.service;
+    }
+
+    // check if match with PB service
+    if (memcmp(evt->data.evt_gatt_service.uuid.data, pb_service.data, pb_service.len) == 0) {
+        ble_data.pbServiceHandle = evt->data.evt_gatt_service.service;
+    }
 }
 
-// saves the handle of the health thermometer characteristic
+// saves the handle of the characteristics
 void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
-    ble_data.htmCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+
+    //LOG_INFO("GATT Characteristic Event ***");
+
+    // check if match with HTM characteristic
+    if (memcmp(evt->data.evt_gatt_characteristic.uuid.data, htm_characteristic.data, htm_characteristic.len) == 0) {
+        ble_data.htmCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+    }
+
+    // check if match with PB characteristic
+    if (memcmp(evt->data.evt_gatt_characteristic.uuid.data, pb_characteristic.data, pb_characteristic.len) == 0) {
+        ble_data.pbCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
+    }
 }
 
 // saves temperature value in indication
@@ -833,15 +957,15 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.htmCharacteristicHandle)) {
 
-        ble_data.characteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
+        ble_data.htmCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
 
         // save value into data structure
-        for (int i=0; i<ble_data.characteristicValue.len; i++) {
-            ble_data.characteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
+        for (int i=0; i<ble_data.htmCharacteristicValue.len; i++) {
+            ble_data.htmCharacteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
         }
 
         // convert value to int, save in data structure
-        ble_data.tempValue = FLOAT_TO_INT32(ble_data.characteristicValue.data);
+        ble_data.tempValue = FLOAT_TO_INT32(ble_data.htmCharacteristicValue.data);
 
         // display temp here, value received from server
         displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data.tempValue);
@@ -849,6 +973,8 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
         // send indication confirmation back to server
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
     }
+
+    // TODO: add case for pb logic
 
 
 }
@@ -887,6 +1013,18 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_system_soft_timer_event(evt);
             break;
 
+        case sl_bt_evt_sm_confirm_passkey_id:
+            ble_sm_confirm_passkey_id(evt);
+            break;
+
+        case sl_bt_evt_sm_bonded_id:
+            ble_sm_bonded_id();
+            break;
+
+        case sl_bt_evt_sm_bonding_failed_id:
+            ble_sm_bonding_failed_id();
+            break;
+
         // events just for servers
         case sl_bt_evt_gatt_server_characteristic_status_id:
             ble_server_characteristic_status_event(evt);
@@ -900,38 +1038,26 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             ble_server_sm_confirm_bonding_event();
             break;
 
-        case sl_bt_evt_sm_confirm_passkey_id:
-            ble_server_sm_confirm_passkey_id(evt);
-            break;
-
-        case sl_bt_evt_sm_bonded_id:
-            ble_server_sm_bonded_id();
-            break;
-
-        case sl_bt_evt_sm_bonding_failed_id:
-            ble_server_sm_bonding_failed_id();
-            break;
-
         // events just for clients
         case sl_bt_evt_scanner_scan_report_id:
             ble_client_scanner_scan_report_event(evt);
-        break;
+            break;
 
         case sl_bt_evt_gatt_procedure_completed_id:
-            ble_client_gatt_procedure_completed_event();
-        break;
+            ble_client_gatt_procedure_completed_event(evt);
+            break;
 
         case sl_bt_evt_gatt_service_id:
             ble_client_gatt_service_event(evt);
-        break;
+            break;
 
         case sl_bt_evt_gatt_characteristic_id:
             ble_client_gatt_characteristic_event(evt);
-        break;
+            break;
 
         case sl_bt_evt_gatt_characteristic_value_id:
             ble_client_gatt_characteristic_value_event(evt);
-        break;
+            break;
 
     }
 }

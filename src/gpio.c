@@ -60,6 +60,10 @@ void init_GPIO() {
 	GPIO_PinModeSet(PB0_PORT, PB0_PIN, gpioModeInput, 1);
 	GPIO_ExtIntConfig (PB0_PORT, PB0_PIN, PB0_PIN, true, true, true);
 
+	// push button 1
+    GPIO_PinModeSet(PB1_PORT, PB1_PIN, gpioModeInput, 1);
+    GPIO_ExtIntConfig (PB1_PORT, PB1_PIN, PB1_PIN, true, true, true);
+
 }
 
 // Turn on LED 0

@@ -184,6 +184,10 @@ SL_WEAK void app_init(void)
     init_GPIO();
     init_oscillators();
     init_timer();
+
+    // enable interrupts for buttons
+    NVIC_EnableIRQ(GPIO_EVEN_IRQn);
+    NVIC_EnableIRQ(GPIO_ODD_IRQn);
 #endif
 
 }

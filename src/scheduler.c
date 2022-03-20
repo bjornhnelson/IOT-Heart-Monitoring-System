@@ -25,31 +25,6 @@ static client_states_t cur_client_state;
 // status variable for most recent event client needs to respond to
 static client_events_t cur_client_event = EVENT_CLIENT_IDLE;
 
-
-// UUID = 1809
-static uuid_t htm_service = {
-    .data = {0x09, 0x18}, // little endian
-    .len = 2
-};
-
-// UUID = 2A1C
-static uuid_t htm_characteristic = {
-    .data = {0x1C, 0x2A}, // little endian
-    .len = 2
-};
-
-// UUID = 00000001-38c8-433e-87ec-652a2d136289
-static uuid_t pb_service = {
-    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x01, 0x00, 0x00, 0x00}, // little endian
-    .len = 16
-};
-
-// UUID = 00000002-38c8-433e-87ec-652a2d136289
-static uuid_t pb_characteristic = {
-    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x02, 0x00, 0x00, 0x00}, // little endian
-    .len = 16
-};
-
 // resets the data structures at initialization
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
@@ -86,7 +61,9 @@ void scheduler_set_event_PB0_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
     //LOG_INFO("BUTTON PRESSED");
+#if DEVICE_IS_BLE_SERVER
     displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+#endif
     get_ble_data_ptr()->pb0Pressed = true;
     sl_bt_external_signal(EVENT_PB0);
     CORE_EXIT_CRITICAL();
@@ -97,7 +74,9 @@ void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
     //LOG_INFO("BUTTON RELEASED");
+#if DEVICE_IS_BLE_SERVER
     displayPrintf(DISPLAY_ROW_9, "Button Released");
+#endif
     get_ble_data_ptr()->pb0Pressed = false;
     sl_bt_external_signal(EVENT_PB0);
     CORE_EXIT_CRITICAL();
@@ -110,7 +89,7 @@ void scheduler_set_event_PB1_pressed() {
     //LOG_INFO("BUTTON PRESSED");
     //displayPrintf(DISPLAY_ROW_9, "Button Pressed");
     get_ble_data_ptr()->pb1Pressed = true;
-    //sl_bt_external_signal(EVENT_PB0);
+    sl_bt_external_signal(EVENT_PB1);
     CORE_EXIT_CRITICAL();
 }
 
@@ -121,7 +100,7 @@ void scheduler_set_event_PB1_released() {
     //LOG_INFO("BUTTON RELEASED");
     //displayPrintf(DISPLAY_ROW_9, "Button Released");
     get_ble_data_ptr()->pb1Pressed = false;
-    //sl_bt_external_signal(EVENT_PB0);
+    sl_bt_external_signal(EVENT_PB1);
     CORE_EXIT_CRITICAL();
 }
 
@@ -182,7 +161,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // wait 80 ms for sensor to power up
                 timer_wait_us_IRQ(80000);
             }
-        break;
+            break;
 
         case STATE_SENSOR_POWERUP:
 
@@ -203,7 +182,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // send the request for a temperature measurement
                 i2c_send_command();
             }
-        break;
+            break;
 
         case STATE_I2C_WRITE:
 
@@ -228,7 +207,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // 10.8 ms delay between write and read
                 timer_wait_us_IRQ(10800);
             }
-        break;
+            break;
 
         case STATE_INTERIM_DELAY:
 
@@ -249,7 +228,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // saves the temperature measurement in i2c.c variable
                 i2c_receive_data();
             }
-        break;
+            break;
 
         case STATE_I2C_READ:
 
@@ -277,7 +256,7 @@ void temperature_state_machine(sl_bt_msg_t* evt) {
                 // deinitialize i2c
                 deinit_i2c();
             }
-        break;
+            break;
     }
 
     // do a state transition
@@ -321,7 +300,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
                 next_state = STATE_HTM_SERVICE_DISCOVERY;
             }
-        break;
+            break;
 
         case STATE_HTM_SERVICE_DISCOVERY:
 
@@ -335,7 +314,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
                 next_state = STATE_HTM_CHARACTERISTIC_DISCOVERY;
             }
-        break;
+            break;
 
         case STATE_HTM_CHARACTERISTIC_DISCOVERY:
 
@@ -349,13 +328,15 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
                 next_state = STATE_HTM_ENABLING_INDICATIONS;
             }
-        break;
+            break;
 
         case STATE_HTM_ENABLING_INDICATIONS:
 
             if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // HTM indications have been enabled
 
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, pb_service.len, pb_service.data);
+
+                //LOG_INFO("HTM DATA: %d  %d", get_ble_data_ptr()->htmServiceHandle, get_ble_data_ptr()->htmCharacteristicHandle);
 
                 if (status != SL_STATUS_OK) {
                     LOG_ERROR("PB sl_bt_gatt_discover_primary_services_by_uuid");
@@ -364,7 +345,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
                 //displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
                 next_state = STATE_PB_SERVICE_DISCOVERY;
             }
-        break;
+            break;
 
         case STATE_PB_SERVICE_DISCOVERY:
 
@@ -379,7 +360,7 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
                 next_state = STATE_PB_CHARACTERISTIC_DISCOVERY;
 
             }
-        break;
+            break;
 
         case STATE_PB_CHARACTERISTIC_DISCOVERY:
 
@@ -393,21 +374,23 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
                 next_state = STATE_PB_ENABLING_INDICATIONS;
             }
-        break;
+            break;
 
         case STATE_PB_ENABLING_INDICATIONS:
 
             if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB indications have been enabled
 
+                //LOG_INFO("PB DATA: %d  %d", get_ble_data_ptr()->pbServiceHandle, get_ble_data_ptr()->pbCharacteristicHandle);
+
                 displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
 
                 next_state = STATE_DISCOVERED;
             }
-        break;
+            break;
 
         case STATE_DISCOVERED:
             // do nothing else, keep receiving indications until close event happens
-        break;
+            break;
 
     }
 

@@ -51,7 +51,7 @@ typedef struct {
     uint16_t htmCharacteristicHandle;
     uint32_t pbServiceHandle;
     uint16_t pbCharacteristicHandle;
-    uint8array characteristicValue;
+    uint8array htmCharacteristicValue;
     bd_addr clientAddress;
     bd_addr serverAddress;
     int32_t tempValue;
@@ -64,6 +64,10 @@ typedef struct {
     uint8_t len;
 } uuid_t;
 
+extern uuid_t htm_service;
+extern uuid_t htm_characteristic;
+extern uuid_t pb_service;
+extern uuid_t pb_characteristic;
 
 ble_data_struct_t* get_ble_data_ptr();
 
@@ -82,9 +86,9 @@ void ble_system_soft_timer_event();
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
 void ble_server_indication_timeout_event();
 void ble_server_sm_confirm_bonding_event();
-void ble_server_sm_confirm_passkey_id(sl_bt_msg_t* evt);
-void ble_server_sm_bonded_id();
-void ble_server_sm_bonding_failed_id();
+void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt);
+void ble_sm_bonded_id();
+void ble_sm_bonding_failed_id();
 
 // client events
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt);

@@ -17,7 +17,7 @@ typedef enum {
     EVENT_TIMER_EXPIRED,
     EVENT_I2C_DONE,
     EVENT_PB0,
-    EVENT_PB0_RELEASED
+    EVENT_PB1
 } server_events_t;
 
 typedef enum {
