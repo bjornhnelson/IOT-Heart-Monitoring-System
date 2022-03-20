@@ -52,9 +52,10 @@ typedef struct {
     uint32_t pbServiceHandle;
     uint16_t pbCharacteristicHandle;
     uint8array htmCharacteristicValue;
+    uint8array pbCharacteristicValue;
     bd_addr clientAddress;
     bd_addr serverAddress;
-    int32_t tempValue;
+    int32_t tempMeasurement;
 
 } ble_data_struct_t;
 

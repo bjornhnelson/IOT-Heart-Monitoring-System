@@ -950,9 +950,10 @@ void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
     }
 }
 
-// saves temperature value in indication
+// saves indication values and updates the LCD display based on them
 void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
+    // HTM indications
     // if char handle and opcode is expected, save value and send confirmation
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.htmCharacteristicHandle)) {
@@ -965,16 +966,46 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
         }
 
         // convert value to int, save in data structure
-        ble_data.tempValue = FLOAT_TO_INT32(ble_data.htmCharacteristicValue.data);
+        ble_data.tempMeasurement = FLOAT_TO_INT32(ble_data.htmCharacteristicValue.data);
 
         // display temp here, value received from server
-        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data.tempValue);
+        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data.tempMeasurement);
 
         // send indication confirmation back to server
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
     }
 
-    // TODO: add case for pb logic
+    // PB Indications
+    // if char handle and opcode is expected, save value and send confirmation
+    if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
+            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.pbCharacteristicHandle)) {
+
+        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
+
+        //LOG_INFO("PB CHAR VAL LEN: %d", ble_data.pbCharacteristicValue.len);
+
+        // save value into data structure
+        for (int i=0; i<ble_data.pbCharacteristicValue.len; i++) {
+            ble_data.pbCharacteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
+            //LOG_INFO("Index %d: %d", i, ble_data.pbCharacteristicValue.data[i]);
+
+        }
+
+        // data format is:
+        // [0] = flags byte = 0x00
+        // [1] = button status = 0 (released) or 1 (pressed)
+
+        if (ble_data.pbCharacteristicValue.data[1] == 0) {
+            displayPrintf(DISPLAY_ROW_9, "Button Released");
+        }
+
+        if (ble_data.pbCharacteristicValue.data[1] == 1) {
+            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+        }
+
+        // send indication confirmation back to server
+        sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
+    }
 
 
 }

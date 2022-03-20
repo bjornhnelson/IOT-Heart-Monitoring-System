@@ -60,7 +60,6 @@ void scheduler_set_event_I2C() {
 void scheduler_set_event_PB0_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-    //LOG_INFO("BUTTON PRESSED");
 #if DEVICE_IS_BLE_SERVER
     displayPrintf(DISPLAY_ROW_9, "Button Pressed");
 #endif
@@ -73,7 +72,6 @@ void scheduler_set_event_PB0_pressed() {
 void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-    //LOG_INFO("BUTTON RELEASED");
 #if DEVICE_IS_BLE_SERVER
     displayPrintf(DISPLAY_ROW_9, "Button Released");
 #endif
