@@ -597,6 +597,7 @@ void ble_connection_closed_event() {
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
+    displayPrintf(DISPLAY_ROW_9, "");
     displayPrintf(DISPLAY_ROW_BTADDR2, "");
 
 #endif
