@@ -407,6 +407,7 @@ void ble_boot_event() {
     ble_data.pb0Pressed = false;
     ble_data.pb1Pressed = false;
     ble_data.passkeyConfirm = false;
+    ble_data.readInFlight = false;
 
     // initialize the security manager
     uint8_t flags = 0x0F; // Bonding requires MITM protection, Encryption requires bonding, Secure connections only, Bonding requests need to be confirmed
@@ -537,7 +538,6 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
     //scheduler_set_client_event(EVENT_CONNECTION_OPENED);
 
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
-    LOG_INFO("Client connection handle: %d", ble_data.clientConnectionHandle);
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
     displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
@@ -609,7 +609,7 @@ void ble_connection_parameters_event(sl_bt_msg_t* evt) {
     // Just a trick to hide a compiler warning about unused input parameter evt.
     (void) evt;
 
-    LOG_INFO("CONNECTION PARAMETERS CHANGED");
+    //LOG_INFO("CONNECTION PARAMETERS CHANGED");
 
     // log interval, latency, and timeout values from **client**
     /*LOG_INFO("interval = %d, latency = %d, timeout = %d",
@@ -636,13 +636,15 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
         ble_data.passkeyConfirm = false;
     }
 
-    // convert bool to int
+    // convert bool to int, update LCD
     uint8_t button_state;
     if (ble_data.pb0Pressed) {
         button_state = 1;
+        displayPrintf(DISPLAY_ROW_9, "Button Pressed");
     }
     else {
         button_state = 0;
+        displayPrintf(DISPLAY_ROW_9, "Button Released");
     }
 
     // whenever a change in button state occurs (pressed or released), update the GATT database
@@ -661,25 +663,58 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
 #else
 
-    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB1) & !ble_data.pb0Pressed) {
+    if (evt->data.evt_system_external_signal.extsignals == EVENT_PB1) { // when button 1 is pressed (rising edge only)
 
-        // TODO: add check for if read already in flight, ignore 2nd press
-        status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
+        // read from gatt database
+        if (!ble_data.pb0Pressed) {
+            // TODO: add check for if read already in flight, ignore 2nd press
+            LOG_INFO("Issuing read");
 
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_gatt_read_characteristic_value: %d", status);
+            if (!ble_data.readInFlight) {
+                status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_read_characteristic_value: %d", status);
+                }
+
+                ble_data.readInFlight = true; // ignore subsequent button presses while a read is still in flight
+            }
+
+
+            // display updated with sl_bt_evt_gatt_characteristic_value event after read
         }
-    }
 
-    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB1) & ble_data.pb0Pressed) {
-        // set a flag
+        // toggle indications on/off
+        else {
 
+            // tell server to disable indications
+            if (ble_data.pbIndicationsEnabled) {
+                //LOG_INFO("Indications toggled OFF");
+                ble_data.pbIndicationsEnabled = false;
+                status = sl_bt_gatt_set_characteristic_notification(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle, gatt_disable);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification 1");
+                }
+            }
+
+            // tell server to enable indications
+            else {
+                //LOG_INFO("Indications toggled ON");
+                ble_data.pbIndicationsEnabled = true;
+                status = sl_bt_gatt_set_characteristic_notification(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle, gatt_indication);
+
+                if (status != SL_STATUS_OK) {
+                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification 2");
+                }
+            }
+        }
     }
 
     // handle pairing process
     if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true) && ble_data.pb0Pressed) {
         status = sl_bt_sm_passkey_confirm(ble_data.clientConnectionHandle, 1);
-        LOG_INFO("PASSKEY CONFIRM");
+        //LOG_INFO("PASSKEY CONFIRM");
 
         if (status != SL_STATUS_OK) {
             LOG_ERROR("sl_bt_sm_passkey_confirm");
@@ -760,7 +795,7 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
  * evt = event that occurred
  */
 void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
-    LOG_INFO("PASSKEY CONFIRM EVENT");
+    //LOG_INFO("PASSKEY CONFIRM EVENT");
 #if DEVICE_IS_BLE_SERVER
     if (ble_data.bonded == false) {
         displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
@@ -776,7 +811,7 @@ void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
 
 // displays bonding success message on LCD
 void ble_sm_bonded_id() {
-    LOG_INFO("BONDED EVENT");
+    //LOG_INFO("BONDED EVENT");
     ble_data.bonded = true;
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
     displayPrintf(DISPLAY_ROW_PASSKEY, "");
@@ -785,7 +820,7 @@ void ble_sm_bonded_id() {
 
 // displays bonding failure message on LCD
 void ble_sm_bonding_failed_id() {
-    LOG_INFO("BONDING FAILED EVENT");
+    //LOG_INFO("BONDING FAILED EVENT");
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonding Failed!");
     displayPrintf(DISPLAY_ROW_PASSKEY, "");
     displayPrintf(DISPLAY_ROW_ACTION, "");
@@ -908,7 +943,6 @@ void ble_client_gatt_procedure_completed_event(sl_bt_msg_t* evt) {
     }
 
     if (status == 0x110F) { // insufficient encryption case, first time pressing PB1
-        LOG_INFO("GATT CHECK!");
         status = sl_bt_sm_increase_security(ble_data.clientConnectionHandle);
 
         if (status != SL_STATUS_OK) {
@@ -950,11 +984,12 @@ void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
     }
 }
 
-// saves indication values and updates the LCD display based on them
+// saves values from indication and read events, updates the LCD display based on them
 void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
+    // for all cases -  if char handle and opcode is expected, save value and send confirmation
+
     // HTM indications
-    // if char handle and opcode is expected, save value and send confirmation
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.htmCharacteristicHandle)) {
 
@@ -976,11 +1011,12 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
     }
 
     // PB Indications
-    // if char handle and opcode is expected, save value and send confirmation
     if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
             (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.pbCharacteristicHandle)) {
 
-        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
+        //LOG_INFO("PB Opcode: %x", evt->data.evt_gatt_characteristic_value.att_opcode);
+
+        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len; // 2 bytes
 
         //LOG_INFO("PB CHAR VAL LEN: %d", ble_data.pbCharacteristicValue.len);
 
@@ -997,14 +1033,40 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
 
         if (ble_data.pbCharacteristicValue.data[1] == 0) {
             displayPrintf(DISPLAY_ROW_9, "Button Released");
+            //LOG_INFO("BUTTON RELEASED");
         }
 
         if (ble_data.pbCharacteristicValue.data[1] == 1) {
             displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+            //LOG_INFO("BUTTON PRESSED");
         }
 
         // send indication confirmation back to server
         sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
+
+    }
+
+    // PB Reads
+    if ((evt->data.evt_gatt_characteristic_value.att_opcode == gatt_read_response) &&
+            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.pbCharacteristicHandle)) {
+
+        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len; // 1 byte
+
+        ble_data.pbCharacteristicValue.data[0] = evt->data.evt_gatt_characteristic_value.value.data[0];
+
+        // data format is:
+        // [0] = button status = 0 (released) or 1 (pressed)
+
+        if (ble_data.pbCharacteristicValue.data[0] == 0) {
+            displayPrintf(DISPLAY_ROW_9, "Button Released");
+        }
+
+        if (ble_data.pbCharacteristicValue.data[0] == 1) {
+            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+        }
+
+        ble_data.readInFlight = false;
+
     }
 
 

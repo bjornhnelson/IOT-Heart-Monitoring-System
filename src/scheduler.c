@@ -60,9 +60,6 @@ void scheduler_set_event_I2C() {
 void scheduler_set_event_PB0_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-#if DEVICE_IS_BLE_SERVER
-    displayPrintf(DISPLAY_ROW_9, "Button Pressed");
-#endif
     get_ble_data_ptr()->pb0Pressed = true;
     sl_bt_external_signal(EVENT_PB0);
     CORE_EXIT_CRITICAL();
@@ -72,9 +69,6 @@ void scheduler_set_event_PB0_pressed() {
 void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-#if DEVICE_IS_BLE_SERVER
-    displayPrintf(DISPLAY_ROW_9, "Button Released");
-#endif
     get_ble_data_ptr()->pb0Pressed = false;
     sl_bt_external_signal(EVENT_PB0);
     CORE_EXIT_CRITICAL();
@@ -98,7 +92,7 @@ void scheduler_set_event_PB1_released() {
     //LOG_INFO("BUTTON RELEASED");
     //displayPrintf(DISPLAY_ROW_9, "Button Released");
     get_ble_data_ptr()->pb1Pressed = false;
-    sl_bt_external_signal(EVENT_PB1);
+    //sl_bt_external_signal(EVENT_PB1); // don't trigger on falling edge
     CORE_EXIT_CRITICAL();
 }
 
@@ -379,6 +373,8 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
             if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB indications have been enabled
 
                 //LOG_INFO("PB DATA: %d  %d", get_ble_data_ptr()->pbServiceHandle, get_ble_data_ptr()->pbCharacteristicHandle);
+
+                get_ble_data_ptr()->pbIndicationsEnabled = true;
 
                 displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
 

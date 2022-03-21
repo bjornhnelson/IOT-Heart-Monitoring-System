@@ -34,13 +34,13 @@ typedef struct {
     bool indicationInFlight;
     uint8_t serverConnectionHandle;
     bool tempIndicationsEnabled;
+    bool pbIndicationsEnabled;
     uint16_t min_interval;
     uint16_t max_interval;
     uint16_t latency;
     uint16_t timeout;
 
     bool bonded;
-    bool pbIndicationsEnabled;
     bool passkeyConfirm;
     bool pb0Pressed;
     bool pb1Pressed;
@@ -56,6 +56,7 @@ typedef struct {
     bd_addr clientAddress;
     bd_addr serverAddress;
     int32_t tempMeasurement;
+    bool readInFlight;
 
 } ble_data_struct_t;
 
