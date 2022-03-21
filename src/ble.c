@@ -665,10 +665,8 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
     if (evt->data.evt_system_external_signal.extsignals == EVENT_PB1) { // when button 1 is pressed (rising edge only)
 
-        // read from gatt database
+        // send gatt database read command
         if (!ble_data.pb0Pressed) {
-            // TODO: add check for if read already in flight, ignore 2nd press
-            LOG_INFO("Issuing read");
 
             if (!ble_data.readInFlight) {
                 status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
