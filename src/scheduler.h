@@ -21,13 +21,6 @@ typedef enum {
 } server_events_t;
 
 typedef enum {
-    EVENT_CLIENT_IDLE,
-    EVENT_CONNECTION_OPENED,
-    EVENT_CONNECTION_CLOSED,
-    EVENT_GATT_PROCEDURE_COMPLETED,
-} client_events_t;
-
-typedef enum {
     STATE_IDLE,
     STATE_SENSOR_POWERUP,
     STATE_I2C_WRITE,
@@ -61,8 +54,6 @@ void scheduler_set_event_PB0_released();
 void scheduler_set_event_PB1_pressed();
 
 void scheduler_set_event_PB1_released();
-
-void scheduler_set_client_event(uint8_t event);
 
 uint8_t bluetooth_connection_errors();
 

@@ -501,23 +501,23 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
         LOG_ERROR("sl_bt_advertiser_stop");
     }
 
-    ble_data.min_interval = 60; // Value = Time in ms / 1.25 ms = 75 / 1.25 = 60
-    ble_data.max_interval = 60; // same math
-    ble_data.latency = 3; // how many connection intervals the slave can skip - off air for up to 300 ms
+    uint16_t min_interval = 60; // Value = Time in ms / 1.25 ms = 75 / 1.25 = 60
+    uint16_t max_interval = 60; // same math
+    uint16_t latency = 3; // how many connection intervals the slave can skip - off air for up to 300 ms
 
     // value greater than (1 + slave latency) * (connection_interval * 2) = (1 + 3) * (75 * 2) = 4 * 150 = 600 ms
     // Value = Time / 10 ms = 600 / 10 = 60 -> use 80
-    ble_data.timeout = 80;
+    uint16_t timeout = 80;
 
     uint16_t min_ce_length = 0; // default
     uint16_t max_ce_length = 0xffff; // no limitation
 
     // Send a request with a set of parameters to the master
     status = sl_bt_connection_set_parameters(ble_data.serverConnectionHandle,
-                                             ble_data.min_interval,
-                                             ble_data.max_interval,
-                                             ble_data.latency,
-                                             ble_data.timeout,
+                                             min_interval,
+                                             max_interval,
+                                             latency,
+                                             timeout,
                                              min_ce_length,
                                              max_ce_length);
 
@@ -535,7 +535,6 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
     }
 
 #else
-    //scheduler_set_client_event(EVENT_CONNECTION_OPENED);
 
     ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
 
@@ -577,7 +576,6 @@ void ble_connection_closed_event() {
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
 #else
-    //scheduler_set_client_event(EVENT_CONNECTION_CLOSED);
 
     status = sl_bt_sm_delete_bondings();
 
@@ -936,7 +934,6 @@ void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
 void ble_client_gatt_procedure_completed_event(sl_bt_msg_t* evt) {
 
     //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED: %d", evt->data.evt_gatt_procedure_completed.result);
-    //scheduler_set_client_event(EVENT_GATT_PROCEDURE_COMPLETED);
 
     status = evt->data.evt_gatt_procedure_completed.result;
 

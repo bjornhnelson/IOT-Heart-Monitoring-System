@@ -87,7 +87,7 @@ void GPIO_EVEN_IRQHandler() {
 
 }
 
-// push button 0 interrupt service routine
+// push button 1 interrupt service routine
 void GPIO_ODD_IRQHandler() {
 
     // get interrupts

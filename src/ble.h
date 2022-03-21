@@ -29,34 +29,31 @@ typedef struct {
     bd_addr myAddress;
 
     // values unique for server
-    uint8_t advertisingSetHandle; // The advertising set handle allocated from Bluetooth stack.
+    uint8_t advertisingSetHandle; // The advertising set handle allocated from Bluetooth stack
+    uint8_t serverConnectionHandle;
     bool connectionOpen;
     bool indicationInFlight;
-    uint8_t serverConnectionHandle;
     bool tempIndicationsEnabled;
     bool pbIndicationsEnabled;
-    uint16_t min_interval;
-    uint16_t max_interval;
-    uint16_t latency;
-    uint16_t timeout;
 
+    // flags for server + client
     bool bonded;
     bool passkeyConfirm;
     bool pb0Pressed;
     bool pb1Pressed;
+    bool readInFlight;
 
     // values unique for client
     uint8_t clientConnectionHandle;
     uint32_t htmServiceHandle;
     uint16_t htmCharacteristicHandle;
+    uint8array htmCharacteristicValue;
     uint32_t pbServiceHandle;
     uint16_t pbCharacteristicHandle;
-    uint8array htmCharacteristicValue;
     uint8array pbCharacteristicValue;
     bd_addr clientAddress;
     bd_addr serverAddress;
     int32_t tempMeasurement;
-    bool readInFlight;
 
 } ble_data_struct_t;
 
@@ -66,6 +63,7 @@ typedef struct {
     uint8_t len;
 } uuid_t;
 
+// external global variables used by scheduler
 extern uuid_t htm_service;
 extern uuid_t htm_characteristic;
 extern uuid_t pb_service;
@@ -83,14 +81,14 @@ void ble_connection_closed_event();
 void ble_connection_parameters_event(sl_bt_msg_t* evt);
 void ble_external_signal_event(sl_bt_msg_t* evt);
 void ble_system_soft_timer_event();
+void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt);
+void ble_sm_bonded_id();
+void ble_sm_bonding_failed_id();
 
 // server events
 void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
 void ble_server_indication_timeout_event();
 void ble_server_sm_confirm_bonding_event();
-void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt);
-void ble_sm_bonded_id();
-void ble_sm_bonding_failed_id();
 
 // client events
 void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt);

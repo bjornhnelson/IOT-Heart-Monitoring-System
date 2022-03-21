@@ -22,9 +22,6 @@
 static server_states_t cur_server_state;
 static client_states_t cur_client_state;
 
-// status variable for most recent event client needs to respond to
-static client_events_t cur_client_event = EVENT_CLIENT_IDLE;
-
 // resets the data structures at initialization
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
@@ -70,7 +67,7 @@ void scheduler_set_event_PB0_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
     get_ble_data_ptr()->pb0Pressed = false;
-    sl_bt_external_signal(EVENT_PB0);
+    sl_bt_external_signal(EVENT_PB0); // trigger on rising and falling edge
     CORE_EXIT_CRITICAL();
 }
 
@@ -78,10 +75,8 @@ void scheduler_set_event_PB0_released() {
 void scheduler_set_event_PB1_pressed() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-    //LOG_INFO("BUTTON PRESSED");
-    //displayPrintf(DISPLAY_ROW_9, "Button Pressed");
     get_ble_data_ptr()->pb1Pressed = true;
-    sl_bt_external_signal(EVENT_PB1);
+    sl_bt_external_signal(EVENT_PB1); // trigger on rising and falling edge
     CORE_EXIT_CRITICAL();
 }
 
@@ -89,16 +84,9 @@ void scheduler_set_event_PB1_pressed() {
 void scheduler_set_event_PB1_released() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-    //LOG_INFO("BUTTON RELEASED");
-    //displayPrintf(DISPLAY_ROW_9, "Button Released");
     get_ble_data_ptr()->pb1Pressed = false;
     //sl_bt_external_signal(EVENT_PB1); // don't trigger on falling edge
     CORE_EXIT_CRITICAL();
-}
-
-// called by bluetooth stack functions, used to advance discovery state machine
-void scheduler_set_client_event(uint8_t event) {
-    cur_client_event = event;
 }
 
 /*
@@ -328,13 +316,10 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
 
                 status = sl_bt_gatt_discover_primary_services_by_uuid(get_ble_data_ptr()->clientConnectionHandle, pb_service.len, pb_service.data);
 
-                //LOG_INFO("HTM DATA: %d  %d", get_ble_data_ptr()->htmServiceHandle, get_ble_data_ptr()->htmCharacteristicHandle);
-
                 if (status != SL_STATUS_OK) {
                     LOG_ERROR("PB sl_bt_gatt_discover_primary_services_by_uuid");
                 }
 
-                //displayPrintf(DISPLAY_ROW_CONNECTION, "Handling Indications");
                 next_state = STATE_PB_SERVICE_DISCOVERY;
             }
             break;
@@ -371,8 +356,6 @@ void discovery_state_machine(sl_bt_msg_t* evt) {
         case STATE_PB_ENABLING_INDICATIONS:
 
             if (SL_BT_MSG_ID(evt->header) == sl_bt_evt_gatt_procedure_completed_id) { // PB indications have been enabled
-
-                //LOG_INFO("PB DATA: %d  %d", get_ble_data_ptr()->pbServiceHandle, get_ble_data_ptr()->pbCharacteristicHandle);
 
                 get_ble_data_ptr()->pbIndicationsEnabled = true;
 

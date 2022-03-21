@@ -13,6 +13,7 @@
 void I2C0_IRQHandler();
 void LETIMER0_IRQHandler();
 void GPIO_EVEN_IRQHandler();
+void GPIO_ODD_IRQHandler();
 
 void count_underflows();
 uint32_t letimerMilliseconds();
