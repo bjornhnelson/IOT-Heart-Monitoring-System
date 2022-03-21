@@ -636,20 +636,19 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
         ble_data.passkeyConfirm = false;
     }
 
-    // convert bool to int, update LCD
+    // var to convert bool to int
     uint8_t button_state;
     if (ble_data.pb0Pressed) {
         button_state = 1;
-        displayPrintf(DISPLAY_ROW_9, "Button Pressed");
     }
     else {
         button_state = 0;
-        displayPrintf(DISPLAY_ROW_9, "Button Released");
     }
 
     // whenever a change in button state occurs (pressed or released), update the GATT database
     if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0)) {
 
+        // write command to GATT database
         // parameters: attribute from gatt_db.h, value offset, array length, value
         status = sl_bt_gatt_server_write_attribute_value(gattdb_button_state, 0, 1, &button_state);
 
@@ -659,16 +658,27 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
 
         // send an indication
         ble_transmit_button_state();
+
+        // update the LCD
+        if (ble_data.pb0Pressed) {
+            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+        }
+        else {
+            displayPrintf(DISPLAY_ROW_9, "Button Released");
+        }
     }
 
 #else
 
     if (evt->data.evt_system_external_signal.extsignals == EVENT_PB1) { // when button 1 is pressed (rising edge only)
+        LOG_INFO("PB1 EVENT");
 
         // send gatt database read command
         if (!ble_data.pb0Pressed) {
+                LOG_INFO("PB0 NOT PRESSED");
 
             if (!ble_data.readInFlight) {
+                LOG_INFO("ISSUE READ");
                 status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
 
                 if (status != SL_STATUS_OK) {
@@ -941,6 +951,9 @@ void ble_client_gatt_procedure_completed_event(sl_bt_msg_t* evt) {
     }
 
     if (status == 0x110F) { // insufficient encryption case, first time pressing PB1
+
+        ble_data.readInFlight = false; // no read was done
+
         status = sl_bt_sm_increase_security(ble_data.clientConnectionHandle);
 
         if (status != SL_STATUS_OK) {
@@ -984,6 +997,8 @@ void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
 
 // saves values from indication and read events, updates the LCD display based on them
 void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
+
+    LOG_INFO("CHAR VAL EVENT, opcode = %X", evt->data.evt_gatt_characteristic_value.att_opcode);
 
     // for all cases -  if char handle and opcode is expected, save value and send confirmation
 
@@ -1051,6 +1066,8 @@ void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
         ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len; // 1 byte
 
         ble_data.pbCharacteristicValue.data[0] = evt->data.evt_gatt_characteristic_value.value.data[0];
+
+        LOG_INFO("PB Read: %d", ble_data.pbCharacteristicValue.data[0]);
 
         // data format is:
         // [0] = button status = 0 (released) or 1 (pressed)
