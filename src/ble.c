@@ -175,35 +175,6 @@ ble_data_struct_t* get_ble_data_ptr() {
     return (&ble_data);
 }
 
-// Private function, original from Dan Walkes. I fixed a sign extension bug.
-// We'll need this for Client A7 assignment to convert health thermometer
-// indications back to an integer. Convert IEEE-11073 32-bit float to signed integer.
-static int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian) {
-    uint8_t signByte = 0;
-    int32_t mantissa;
-
-    // input data format is:
-    // [0] = flags byte
-    // [3][2][1] = mantissa (2's complement)
-    // [4] = exponent (2's complement)
-
-    // BT value_start_little_endian[0] has the flags byte
-    int8_t exponent = (int8_t)value_start_little_endian[4];
-
-    // sign extend the mantissa value if the mantissa is negative
-    if (value_start_little_endian[3] & 0x80) { // msb of [3] is the sign of the mantissa
-        signByte = 0xFF;
-    }
-
-    mantissa = (int32_t) (value_start_little_endian[1] << 0) |
-            (value_start_little_endian[2] << 8) |
-            (value_start_little_endian[3] << 16) |
-            (signByte << 24);
-
-    // value = 10^exponent * mantissa, pow() returns a double type
-    return (int32_t) (pow(10, exponent) * mantissa);
-}
-
 // OTHER FUNCTIONS
 
 /*
@@ -214,7 +185,7 @@ static int32_t FLOAT_TO_INT32(const uint8_t *value_start_little_endian) {
  *
  * returns: true or false
  */
-static bool addressesMatch(bd_addr a1, bd_addr a2) {
+/*static bool addressesMatch(bd_addr a1, bd_addr a2) {
 
     return ((a1.addr[0] == a2.addr[0]) &&
             (a1.addr[1] == a2.addr[1]) &&
@@ -222,7 +193,7 @@ static bool addressesMatch(bd_addr a1, bd_addr a2) {
             (a1.addr[3] == a2.addr[3]) &&
             (a1.addr[4] == a2.addr[4]) &&
             (a1.addr[5] == a2.addr[5]));
-}
+}*/
 
 // called by external signal to send push button indications to client
 void ble_transmit_button_state() {
@@ -327,7 +298,6 @@ void ble_transmit_temp() {
 // This event indicates the device has started and the radio is ready
 void ble_boot_event() {
 
-#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("SYSTEM BOOT");
 
     status = sl_bt_sm_delete_bondings();
@@ -395,88 +365,6 @@ void ble_boot_event() {
                   ble_data.myAddress.addr[0], ble_data.myAddress.addr[1], ble_data.myAddress.addr[2],
                   ble_data.myAddress.addr[3], ble_data.myAddress.addr[4], ble_data.myAddress.addr[5]);
 
-#else
-
-    status = sl_bt_sm_delete_bondings();
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_sm_delete_bondings");
-    }
-
-    ble_data.bonded = false;
-    ble_data.pb0Pressed = false;
-    ble_data.pb1Pressed = false;
-    ble_data.passkeyConfirm = false;
-    ble_data.readInFlight = false;
-
-    // initialize the security manager
-    uint8_t flags = 0x0F; // Bonding requires MITM protection, Encryption requires bonding, Secure connections only, Bonding requests need to be confirmed
-    status = sl_bt_sm_configure(flags, sm_io_capability_displayyesno);
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_sm_configure");
-    }
-
-    // save server address
-    bd_addr server_addr  = SERVER_BT_ADDRESS;
-
-    ble_data.serverAddress = server_addr;
-
-    uint8_t myAddressType;
-    status = sl_bt_system_get_identity_address(&(ble_data.clientAddress), &myAddressType);
-
-    uint8_t phys = 1;
-    status = sl_bt_scanner_set_mode(phys, 0); // 1M PHY, passive scanning
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_scanner_set_mode");
-    }
-
-    // Time = Value * .625 ms
-    uint16_t scan_interval = 80; // 50 ms
-    uint16_t scan_window = 40; // 25 ms
-    status = sl_bt_scanner_set_timing(phys, scan_interval, scan_window);
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_scanner_set_timing");
-    }
-
-    // Value = Time / 1.25
-    uint16_t min_interval = 60; // 75 ms
-    uint16_t max_interval = 60; // 75 ms
-
-    uint16_t latency = 4;
-
-    uint16_t timeout = (1 + latency) * (max_interval * 2) + max_interval; // 660
-    uint16_t min_ce_length = 0;
-    uint16_t max_ce_length = 4;
-    status = sl_bt_connection_set_default_parameters(min_interval, max_interval, latency, timeout, min_ce_length, max_ce_length);
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_connection_set_default_parameters");
-    }
-
-    status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_scanner_start");
-    }
-
-    // enable the LCD
-    displayInit();
-
-    displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A9");
-
-    displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
-
-    displayPrintf(DISPLAY_ROW_BTADDR, "%x:%x:%x:%x:%x:%x",
-                  ble_data.clientAddress.addr[0], ble_data.clientAddress.addr[1], ble_data.clientAddress.addr[2],
-                  ble_data.clientAddress.addr[3], ble_data.clientAddress.addr[4], ble_data.clientAddress.addr[5]);
-
-
-#endif
-
 }
 
 /*
@@ -486,7 +374,6 @@ void ble_boot_event() {
  */
 void ble_connection_opened_event(sl_bt_msg_t* evt) {
 
-#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION OPENED");
 
     // update flags and save data
@@ -534,23 +421,11 @@ void ble_connection_opened_event(sl_bt_msg_t* evt) {
         LOG_ERROR("sl_bt_system_set_soft_timer 2");
     }
 
-#else
-
-    ble_data.clientConnectionHandle = evt->data.evt_connection_opened.connection;
-
-    displayPrintf(DISPLAY_ROW_CONNECTION, "Connected");
-    displayPrintf(DISPLAY_ROW_BTADDR2, "%x:%x:%x:%x:%x:%x",
-                  get_ble_data_ptr()->serverAddress.addr[0], get_ble_data_ptr()->serverAddress.addr[1], get_ble_data_ptr()->serverAddress.addr[2],
-                  get_ble_data_ptr()->serverAddress.addr[3], get_ble_data_ptr()->serverAddress.addr[4], get_ble_data_ptr()->serverAddress.addr[5]);
-
-#endif
-
 }
 
 // This event indicates that a connection was closed
 void ble_connection_closed_event() {
 
-#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("CONNECTION CLOSED");
 
     status = sl_bt_sm_delete_bondings();
@@ -575,31 +450,6 @@ void ble_connection_closed_event() {
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
     displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
 
-#else
-
-    status = sl_bt_sm_delete_bondings();
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_sm_delete_bondings");
-    }
-
-    uint8_t phys = 1;
-    status = sl_bt_scanner_start(phys, sl_bt_scanner_discover_generic);
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("sl_bt_scanner_start");
-    }
-
-    gpioLed0SetOff();
-    gpioLed1SetOff();
-
-    displayPrintf(DISPLAY_ROW_CONNECTION, "Discovering");
-    displayPrintf(DISPLAY_ROW_TEMPVALUE, "");
-    displayPrintf(DISPLAY_ROW_9, "");
-    displayPrintf(DISPLAY_ROW_BTADDR2, "");
-
-#endif
-
 }
 
 // Informational: triggered whenever the connection parameters are changed and at any time a connection is established
@@ -621,7 +471,6 @@ void ble_connection_parameters_event(sl_bt_msg_t* evt) {
 // handles external events
 void ble_external_signal_event(sl_bt_msg_t* evt) {
 
-#if DEVICE_IS_BLE_SERVER
     //LOG_INFO("EXTERNAL SIGNAL EVENT");
 
     // handle pairing process
@@ -663,74 +512,11 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
         ble_transmit_button_state();
     }
 
-#else
-
-    if (evt->data.evt_system_external_signal.extsignals == EVENT_PB1) { // when button 1 is pressed (rising edge only)
-
-        // send gatt database read command
-        if (!ble_data.pb0Pressed) {
-
-            if (!ble_data.readInFlight) {
-                status = sl_bt_gatt_read_characteristic_value(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle);
-
-                if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_read_characteristic_value: %d", status);
-                }
-
-                ble_data.readInFlight = true; // ignore subsequent button presses while a read is still in flight
-            }
-
-
-            // display updated with sl_bt_evt_gatt_characteristic_value event after read
-        }
-
-        // toggle indications on/off
-        else {
-
-            // tell server to disable indications
-            if (ble_data.pbIndicationsEnabled) {
-                //LOG_INFO("Indications toggled OFF");
-                ble_data.pbIndicationsEnabled = false;
-                status = sl_bt_gatt_set_characteristic_notification(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle, gatt_disable);
-
-                if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification 1");
-                }
-            }
-
-            // tell server to enable indications
-            else {
-                //LOG_INFO("Indications toggled ON");
-                ble_data.pbIndicationsEnabled = true;
-                status = sl_bt_gatt_set_characteristic_notification(ble_data.clientConnectionHandle, ble_data.pbCharacteristicHandle, gatt_indication);
-
-                if (status != SL_STATUS_OK) {
-                    LOG_ERROR("sl_bt_gatt_set_characteristic_notification 2");
-                }
-            }
-        }
-    }
-
-    // handle pairing process
-    if ((evt->data.evt_system_external_signal.extsignals == EVENT_PB0) && (ble_data.passkeyConfirm == true) && ble_data.pb0Pressed) {
-        status = sl_bt_sm_passkey_confirm(ble_data.clientConnectionHandle, 1);
-        //LOG_INFO("PASSKEY CONFIRM");
-
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_sm_passkey_confirm");
-        }
-
-        ble_data.passkeyConfirm = false;
-    }
-
-#endif
 
 }
 
 // handles soft timer events
 void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
-
-#if DEVICE_IS_BLE_SERVER
 
     // every 1 second
     if (evt->data.evt_system_soft_timer.handle == LCD_HANDLE) {
@@ -779,14 +565,6 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
 
     }
 
-#else
-    // every 1 second
-    if (evt->data.evt_system_soft_timer.handle == LCD_HANDLE) {
-        // LOG_INFO("Soft Timer 1");
-
-        displayUpdate(); // prevent charge buildup on LCD
-    }
-#endif
 }
 
 /*
@@ -796,17 +574,11 @@ void ble_system_soft_timer_event(sl_bt_msg_t* evt) {
  */
 void ble_sm_confirm_passkey_id(sl_bt_msg_t* evt) {
     //LOG_INFO("PASSKEY CONFIRM EVENT");
-#if DEVICE_IS_BLE_SERVER
     if (ble_data.bonded == false) {
         displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
         displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
         ble_data.passkeyConfirm = true;
     }
-#else
-    displayPrintf(DISPLAY_ROW_PASSKEY, "Passkey %06d" , evt->data.evt_sm_passkey_display.passkey);
-    displayPrintf(DISPLAY_ROW_ACTION, "Confirm with PB0");
-    ble_data.passkeyConfirm = true;
-#endif
 }
 
 // displays bonding success message on LCD
@@ -900,174 +672,6 @@ void ble_server_sm_confirm_bonding_event() {
     }
 }
 
-
-// CLIENT EVENTS BELOW
-
-// handles scan report logic, opens connection if server found
-void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt) {
-
-    // needed variables for opening connection
-    uint8_t connection;
-
-    // check conditions for opening connection - bluetooth addresses match, packet and address types are expected values
-    if (addressesMatch(evt->data.evt_scanner_scan_report.address, ble_data.serverAddress) &&
-            ((evt->data.evt_scanner_scan_report.packet_type & 7) == 0) && // lower 3 bits -> corresponds to connectable scannable undirected advertising
-            (evt->data.evt_scanner_scan_report.address_type == 0)) { // public address type
-
-        status = sl_bt_scanner_stop();
-
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_scanner_stop");
-        }
-
-        status = sl_bt_connection_open(ble_data.serverAddress, evt->data.evt_scanner_scan_report.address_type, sl_bt_gap_1m_phy, &connection);
-
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_connection_open");
-        }
-
-    }
-
-}
-
-// notifies scheduler that a GATT procedure has been completed
-void ble_client_gatt_procedure_completed_event(sl_bt_msg_t* evt) {
-
-    //LOG_INFO("CLIENT: GATT PROCEDURE COMPLETED: %d", evt->data.evt_gatt_procedure_completed.result);
-
-    status = evt->data.evt_gatt_procedure_completed.result;
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("GATT procedure completed error: %d", status);
-    }
-
-    if (status == 0x110F) { // insufficient encryption case, first time pressing PB1
-
-        ble_data.readInFlight = false; // no read was done
-
-        status = sl_bt_sm_increase_security(ble_data.clientConnectionHandle);
-
-        if (status != SL_STATUS_OK) {
-            LOG_ERROR("sl_bt_sm_increase_security: %d", status);
-        }
-    }
-
-}
-
-// saves the handle of the services
-void ble_client_gatt_service_event(sl_bt_msg_t* evt) {
-
-    //LOG_INFO("GATT Service Event ***");
-
-    // check if match with HTM service
-    if (memcmp(evt->data.evt_gatt_service.uuid.data, htm_service.data, htm_service.len) == 0) {
-        ble_data.htmServiceHandle = evt->data.evt_gatt_service.service;
-    }
-
-    // check if match with PB service
-    if (memcmp(evt->data.evt_gatt_service.uuid.data, pb_service.data, pb_service.len) == 0) {
-        ble_data.pbServiceHandle = evt->data.evt_gatt_service.service;
-    }
-}
-
-// saves the handle of the characteristics
-void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt) {
-
-    //LOG_INFO("GATT Characteristic Event ***");
-
-    // check if match with HTM characteristic
-    if (memcmp(evt->data.evt_gatt_characteristic.uuid.data, htm_characteristic.data, htm_characteristic.len) == 0) {
-        ble_data.htmCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
-    }
-
-    // check if match with PB characteristic
-    if (memcmp(evt->data.evt_gatt_characteristic.uuid.data, pb_characteristic.data, pb_characteristic.len) == 0) {
-        ble_data.pbCharacteristicHandle = evt->data.evt_gatt_characteristic.characteristic;
-    }
-}
-
-// saves values from indication and read events, updates the LCD display based on them
-void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt) {
-
-    // for all cases -  if char handle and opcode is expected, save value and send confirmation
-
-    // HTM indications
-    if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
-            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.htmCharacteristicHandle)) {
-
-        ble_data.htmCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len;
-
-        // save value into data structure
-        for (int i=0; i<ble_data.htmCharacteristicValue.len; i++) {
-            ble_data.htmCharacteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
-        }
-
-        // convert value to int, save in data structure
-        ble_data.tempMeasurement = FLOAT_TO_INT32(ble_data.htmCharacteristicValue.data);
-
-        // display temp here, value received from server
-        displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", ble_data.tempMeasurement);
-
-        // send indication confirmation back to server
-        sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
-    }
-
-    // PB Indications
-    if ((evt->data.evt_gatt_characteristic_value.att_opcode == sl_bt_gatt_handle_value_indication) &&
-            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.pbCharacteristicHandle)) {
-
-        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len; // 2 bytes
-
-        // save value into data structure
-        for (int i=0; i<ble_data.pbCharacteristicValue.len; i++) {
-            ble_data.pbCharacteristicValue.data[i] = evt->data.evt_gatt_characteristic_value.value.data[i];
-        }
-
-        // data format is:
-        // [0] = flags byte = 0x00
-        // [1] = button status = 0 (released) or 1 (pressed)
-
-        if (ble_data.pbCharacteristicValue.data[1] == 0) {
-            displayPrintf(DISPLAY_ROW_9, "Button Released");
-            //LOG_INFO("BUTTON RELEASED");
-        }
-
-        if (ble_data.pbCharacteristicValue.data[1] == 1) {
-            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
-            //LOG_INFO("BUTTON PRESSED");
-        }
-
-        // send indication confirmation back to server
-        sl_bt_gatt_send_characteristic_confirmation(ble_data.clientConnectionHandle);
-
-    }
-
-    // PB Reads
-    if ((evt->data.evt_gatt_characteristic_value.att_opcode == gatt_read_response) &&
-            (evt->data.evt_gatt_characteristic_value.characteristic == ble_data.pbCharacteristicHandle)) {
-
-        ble_data.pbCharacteristicValue.len = evt->data.evt_gatt_characteristic_value.value.len; // 1 byte
-
-        ble_data.pbCharacteristicValue.data[0] = evt->data.evt_gatt_characteristic_value.value.data[0];
-
-        // data format is:
-        // [0] = button status = 0 (released) or 1 (pressed)
-
-        if (ble_data.pbCharacteristicValue.data[0] == 0) {
-            displayPrintf(DISPLAY_ROW_9, "Button Released");
-        }
-
-        if (ble_data.pbCharacteristicValue.data[0] == 1) {
-            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
-        }
-
-        ble_data.readInFlight = false;
-
-    }
-
-
-}
-
 /*
  * event handler for various bluetooth events
  *
@@ -1128,25 +732,6 @@ void handle_ble_event(sl_bt_msg_t* evt) {
             break;
 
         // events just for clients
-        case sl_bt_evt_scanner_scan_report_id:
-            ble_client_scanner_scan_report_event(evt);
-            break;
-
-        case sl_bt_evt_gatt_procedure_completed_id:
-            ble_client_gatt_procedure_completed_event(evt);
-            break;
-
-        case sl_bt_evt_gatt_service_id:
-            ble_client_gatt_service_event(evt);
-            break;
-
-        case sl_bt_evt_gatt_characteristic_id:
-            ble_client_gatt_characteristic_event(evt);
-            break;
-
-        case sl_bt_evt_gatt_characteristic_value_id:
-            ble_client_gatt_characteristic_value_event(evt);
-            break;
 
     }
 }

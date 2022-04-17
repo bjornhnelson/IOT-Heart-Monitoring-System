@@ -90,13 +90,6 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt);
 void ble_server_indication_timeout_event();
 void ble_server_sm_confirm_bonding_event();
 
-// client events
-void ble_client_scanner_scan_report_event(sl_bt_msg_t* evt);
-void ble_client_gatt_procedure_completed_event();
-void ble_client_gatt_service_event(sl_bt_msg_t* evt);
-void ble_client_gatt_characteristic_event(sl_bt_msg_t* evt);
-void ble_client_gatt_characteristic_value_event(sl_bt_msg_t* evt);
-
 // event responder
 void handle_ble_event(sl_bt_msg_t* event);
 

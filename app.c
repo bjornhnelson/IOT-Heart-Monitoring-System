@@ -158,7 +158,6 @@ SL_WEAK void app_init(void)
   // This is called once during start-up.
   // Don't call any Bluetooth API functions until after the boot event.
 
-#if DEVICE_IS_BLE_SERVER
     // energy mode setup
     if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
       sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
@@ -174,21 +173,7 @@ SL_WEAK void app_init(void)
 
     // enable interrupts for button
     NVIC_EnableIRQ(GPIO_EVEN_IRQn);
-
-#else
-    if ((LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM1) || (LOWEST_ENERGY_MODE == SL_POWER_MANAGER_EM2)) {
-          sl_power_manager_add_em_requirement(LOWEST_ENERGY_MODE);
-    }
-
-    init_scheduler();
-    init_GPIO();
-    init_oscillators();
-    init_timer();
-
-    // enable interrupts for buttons
-    NVIC_EnableIRQ(GPIO_EVEN_IRQn);
     NVIC_EnableIRQ(GPIO_ODD_IRQn);
-#endif
 
 }
 
