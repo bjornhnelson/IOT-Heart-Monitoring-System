@@ -11,6 +11,20 @@
 #include "stdint.h"
 #include "em_i2c.h"
 
+uint8_t* get_heart_data();
+
+void print_heart_data();
+
+void reset_heart_data();
+
+int status_byte_error();
+
+void i2c_write(uint8_t* cmd, int len);
+
+void i2c_read();
+
+void i2c_read_byte(uint8_t* save_addr);
+
 void init_i2c();
 
 void deinit_i2c();

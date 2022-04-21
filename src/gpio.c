@@ -64,6 +64,11 @@ void init_GPIO() {
     GPIO_PinModeSet(PB1_PORT, PB1_PIN, gpioModeInput, 1);
     GPIO_ExtIntConfig (PB1_PORT, PB1_PIN, PB1_PIN, true, true, true);
 
+    // heart sensor
+    GPIO_DriveStrengthSet(MAX30101_PORT, gpioDriveStrengthStrongAlternateStrong);
+    GPIO_PinModeSet(MAX30101_PORT, MAX30101_RESET_PIN, gpioModePushPull, true);
+    GPIO_PinModeSet(MAX30101_PORT, MAX30101_MFIO_PIN, gpioModePushPull, false);
+
 }
 
 // Turn on LED 0

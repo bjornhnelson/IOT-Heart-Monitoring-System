@@ -58,6 +58,7 @@
 #include "src/timers.h"
 #include "src/scheduler.h"
 #include "src/i2c.h"
+#include "src/heart_sensor.h"
 #include "em_letimer.h"
 
 
@@ -175,6 +176,8 @@ SL_WEAK void app_init(void)
     NVIC_EnableIRQ(GPIO_EVEN_IRQn);
     NVIC_EnableIRQ(GPIO_ODD_IRQn);
 
+    init_heart_sensor();
+
 }
 
 
@@ -211,6 +214,11 @@ SL_WEAK void app_process_action(void)
   //         later assignments.
 
   // no code called here in A5
+
+    /*LOG_INFO("Start 2 sec polled");
+    timer_wait_us_polled(2000000);
+    LOG_INFO("Start 2 sec IRQ");
+    timer_wait_us_IRQ(2000000);*/
 
 }
 

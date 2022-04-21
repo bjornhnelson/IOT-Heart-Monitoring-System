@@ -20,6 +20,10 @@
 #define PB1_PORT gpioPortF
 #define PB1_PIN 7
 
+#define MAX30101_PORT gpioPortD
+#define MAX30101_MFIO_PIN 10
+#define MAX30101_RESET_PIN 11
+
 // Function prototypes
 void init_GPIO();
 void gpioLed0SetOn();

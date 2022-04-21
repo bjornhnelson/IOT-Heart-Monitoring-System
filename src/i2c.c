@@ -15,11 +15,13 @@
 // i2c device address
 #define SI7021_ADDR 0x40
 
+#define MAX30101_ADDR 0xAA // 0x55 << 1
+
 // command id for measuring temperature in no hold master mode
 #define MEASURE_TEMP_CMD 0xF3
 
 // enable logging for temperature results to be displayed in console
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 I2C_TransferSeq_TypeDef transfer_sequence;
@@ -30,26 +32,116 @@ uint8_t cmd_data_len;
 uint8_t read_data[2];
 uint8_t read_data_len;
 
+
+// heart sensor variables
+uint8_t heart_data[8];
+
+
+uint8_t* get_heart_data() {
+    return heart_data;
+}
+
+void reset_heart_data() {
+    for (int i=0; i<8; i++) {
+        heart_data[i] = 7;
+    }
+}
+
+void print_heart_data() {
+    LOG_INFO("** I2C READ DATA **");
+
+    for (int i=0; i<8; i++) {
+        LOG_INFO("Byte %d: %d", i, heart_data[i]);
+    }
+}
+
+// returns 1 if there was an error, 0 if not
+int status_byte_error() {
+    return (heart_data[0] != 0x00);
+}
+
+
+// data structure for initializing i2c
+static I2CSPM_Init_TypeDef i2c_settings = {
+        .port = I2C0,
+        .sclPort = gpioPortC,
+        .sclPin = 10,
+        .sdaPort = gpioPortC,
+        .sdaPin = 11,
+        .portLocationScl = 14,
+        .portLocationSda = 16,
+        .i2cRefFreq = 0,
+        .i2cMaxFreq = I2C_FREQ_STANDARD_MAX,
+        .i2cClhr = i2cClockHLRStandard
+};
+
+
 // calls the API's i2c setup function with i2c settings in typedef
 // handles load power management initialization
 void init_i2c() {
 
-    // data structure for initializing i2c
-    static I2CSPM_Init_TypeDef i2c_settings = {
-            .port = I2C0,
-            .sclPort = gpioPortC,
-            .sclPin = 10,
-            .sdaPort = gpioPortC,
-            .sdaPin = 11,
-            .portLocationScl = 14,
-            .portLocationSda = 16,
-            .i2cRefFreq = 0,
-            .i2cMaxFreq = I2C_FREQ_STANDARD_MAX,
-            .i2cClhr = i2cClockHLRStandard
-    };
-
     // call the library setup function
     I2CSPM_Init(&i2c_settings);
+
+}
+
+void i2c_write(uint8_t* cmd, int len) {
+
+    //init_i2c();
+
+    // set i2c address and mode
+    transfer_sequence.addr = MAX30101_ADDR;
+    transfer_sequence.flags = I2C_FLAG_WRITE;
+    transfer_sequence.buf[0].data = cmd;
+    transfer_sequence.buf[0].len = len;
+
+    // start the transfer
+    I2C_TransferReturn_TypeDef transfer_status = I2CSPM_Transfer(I2C0, &transfer_sequence);
+
+    // check for errors
+    if (transfer_status < 0) {
+        process_i2c_status(transfer_status);
+    }
+
+}
+
+void i2c_read() {
+
+    //init_i2c();
+
+    // set i2c address and mode
+    transfer_sequence.addr = MAX30101_ADDR;
+    transfer_sequence.flags = I2C_FLAG_READ;
+    transfer_sequence.buf[0].data = heart_data;
+    transfer_sequence.buf[0].len = sizeof(heart_data);
+
+    // start the transfer
+    I2C_TransferReturn_TypeDef transfer_status = I2CSPM_Transfer(I2C0, &transfer_sequence);
+
+    // check for errors
+    if (transfer_status < 0) {
+        process_i2c_status(transfer_status);
+    }
+
+}
+
+void i2c_read_byte(uint8_t* save_addr) {
+
+    //init_i2c();
+
+    // set i2c address and mode
+    transfer_sequence.addr = MAX30101_ADDR;
+    transfer_sequence.flags = I2C_FLAG_READ;
+    transfer_sequence.buf[0].data = save_addr;
+    transfer_sequence.buf[0].len = 1;
+
+    // start the transfer
+    I2C_TransferReturn_TypeDef transfer_status = I2CSPM_Transfer(I2C0, &transfer_sequence);
+
+    // check for errors
+    if (transfer_status < 0) {
+        process_i2c_status(transfer_status);
+    }
 
 }
 
