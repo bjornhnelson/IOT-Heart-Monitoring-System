@@ -23,7 +23,7 @@ void i2c_write(uint8_t* cmd, int len);
 
 void i2c_read();
 
-void i2c_read_byte(uint8_t* save_addr);
+void i2c_read_addr(uint8_t* save_addr, uint8_t num_bytes);
 
 void init_i2c();
 

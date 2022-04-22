@@ -125,7 +125,7 @@ void i2c_read() {
 
 }
 
-void i2c_read_byte(uint8_t* save_addr) {
+void i2c_read_addr(uint8_t* save_addr, uint8_t num_bytes) {
 
     //init_i2c();
 
@@ -133,7 +133,7 @@ void i2c_read_byte(uint8_t* save_addr) {
     transfer_sequence.addr = MAX30101_ADDR;
     transfer_sequence.flags = I2C_FLAG_READ;
     transfer_sequence.buf[0].data = save_addr;
-    transfer_sequence.buf[0].len = 1;
+    transfer_sequence.buf[0].len = num_bytes;
 
     // start the transfer
     I2C_TransferReturn_TypeDef transfer_status = I2CSPM_Transfer(I2C0, &transfer_sequence);

@@ -37,7 +37,7 @@ typedef struct heart_sensor_data {
 
 heart_sensor_data health_data;
 
-#define MAXFAST_ARRAY_SIZE        6
+#define MAXFAST_ARRAY_SIZE        7
 uint8_t bpm_arr[MAXFAST_ARRAY_SIZE];
 
 void disable_reset() {
@@ -156,32 +156,42 @@ void read_algo_samples() {
 }
 
 void read_sensor_hub_status() {
+
+    uint8_t buf[8];
+
     i2c_write(read_sensor_hub_status_cmd, sizeof(read_sensor_hub_status_cmd));
 
     timer_wait_us_polled(CMD_DELAY);
 
-    i2c_read();
+    i2c_read_addr(buf, 8);
 
-    if (status_byte_error())
+    if (buf[0] != 0)
         LOG_ERROR("read_sensor_hub_status()");
 
-    if (get_heart_data()[1] == 1) {
+    if (buf[1] == 1) {
         LOG_ERROR("Sensor communication error");
         health_data.heart_rate = 0;
         health_data.blood_oxygen = 0;
         health_data.confidence = 0;
     }
+
+    LOG_INFO("DataRdyInt = %d (0=no, 1=yes)", buf[3]);
 }
 
 void num_samples_out_fifo() {
+
+    uint8_t buf[8];
+
     i2c_write(num_samples_out_fifo_cmd, sizeof(num_samples_out_fifo_cmd));
 
     timer_wait_us_polled(CMD_DELAY);
 
-    i2c_read();
+    i2c_read_addr(buf, 8);
 
-    if (status_byte_error())
+    if (buf[0] != 0)
         LOG_ERROR("num_samples_out_fifo()");
+
+    LOG_INFO("Num Samples in fifo: %d", buf[1]);
 }
 
 void read_fill_array() {
@@ -190,15 +200,14 @@ void read_fill_array() {
     // number of reads
     // array - bpm_arr
 
-    for (int i=0; i<MAXFAST_ARRAY_SIZE; i++) {
+    //for (int i=0; i<MAXFAST_ARRAY_SIZE; i++) {
         i2c_write(read_fill_array_cmd, sizeof(read_fill_array_cmd));
 
         timer_wait_us_polled(CMD_DELAY);
 
-        i2c_read_byte(bpm_arr + i);
-    }
+        i2c_read_addr(bpm_arr, MAXFAST_ARRAY_SIZE);
+    //}
 
-    print_heart_data();
 }
 
 void process_raw_heart_data() {
@@ -215,41 +224,45 @@ void process_raw_heart_data() {
      * END OF DATA
      */
 
-    health_data.heart_rate = ((uint16_t)(bpm_arr[0])) << 8;
-    health_data.heart_rate |= bpm_arr[1];
+
+    for (int i=0; i<7; i++) {
+        LOG_INFO("Byte %d: %d", i, bpm_arr[i]);
+    }
+
+    health_data.heart_rate = bpm_arr[1] << 8;
+    health_data.heart_rate |= bpm_arr[2];
     health_data.heart_rate /= 10;
 
-    health_data.heart_rate = ((uint16_t)(bpm_arr[3])) << 8;
-    health_data.blood_oxygen |= bpm_arr[4];
+    health_data.blood_oxygen = bpm_arr[4] << 8;
+    health_data.blood_oxygen |= bpm_arr[5];
     health_data.blood_oxygen /= 10;
 
-    health_data.confidence = bpm_arr[2];
+    health_data.confidence = bpm_arr[3];
 
-    health_data.finger_status = bpm_arr[5];
+    health_data.finger_status = bpm_arr[6];
+
+    LOG_INFO("** RESULTS **");
+    LOG_INFO("Heart Rate: %d   Blood Oxygen: %d    Confidence: %d    Status: %d\n", health_data.heart_rate, health_data.blood_oxygen, health_data.confidence, health_data.finger_status);
 
 }
 
 // like readBPM in Arduino code
 void read_heart_sensor() {
 
+
+
     read_sensor_hub_status();
     //LOG_INFO("Read sensor hub status");
     //print_heart_data();
 
+    // CAREFUL, THIS OVERWRITES PART OF HEART RATE DATA
     num_samples_out_fifo();
     //LOG_INFO("Num samples out fifo");
     //print_heart_data();
 
     read_fill_array();
 
-    for (int i=0; i<MAXFAST_ARRAY_SIZE; i++) {
-        bpm_arr[i] = get_heart_data()[i+1];
-    }
-
     process_raw_heart_data();
-
-    LOG_INFO("** RESULTS **");
-    LOG_INFO("Heart Rate: %d   Blood Oxygen: %d    Confidence: %d    Status: %d", health_data.heart_rate, health_data.blood_oxygen, health_data.confidence, health_data.finger_status);
 
 }
 
@@ -324,7 +337,7 @@ void init_heart_sensor() {
 
     while(1) {
         read_heart_sensor();
-        timer_wait_us_polled(1000000); // wait 1 seconds between readings
+        timer_wait_us_polled(1000000);
     }
 
 }
