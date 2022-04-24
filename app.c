@@ -221,7 +221,8 @@ SL_WEAK void app_process_action(void)
     timer_wait_us_IRQ(2000000);*/
 
     //LOG_INFO("TEST TIMER @ %d", letimerMilliseconds());
-    pulse_LED();
+
+    //pulse_LED();
 
 }
 

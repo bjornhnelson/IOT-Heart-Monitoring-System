@@ -14,7 +14,9 @@
 //#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
-#define CMD_DELAY 60
+// 60 us to short for some functions, experimented with values
+#define CMD_DELAY 100000
+#define DATASHEET_CMD_DELAY 60
 
 uint8_t read_device_mode_cmd[2] = {0x02, 0x00};
 uint8_t read_sensor_hub_version_cmd[2] = {0xFF, 0x03};
@@ -158,7 +160,7 @@ void read_sensor_hub_status() {
 
     i2c_write(read_sensor_hub_status_cmd, sizeof(read_sensor_hub_status_cmd));
 
-    timer_wait_us_polled(CMD_DELAY);
+    timer_wait_us_polled(DATASHEET_CMD_DELAY);
 
     i2c_read_addr(buf, 8);
 
@@ -181,7 +183,7 @@ void num_samples_out_fifo() {
 
     i2c_write(num_samples_out_fifo_cmd, sizeof(num_samples_out_fifo_cmd));
 
-    timer_wait_us_polled(CMD_DELAY);
+    timer_wait_us_polled(DATASHEET_CMD_DELAY);
 
     i2c_read_addr(buf, 8);
 
@@ -199,9 +201,12 @@ void read_fill_array() {
 
     i2c_write(read_fill_array_cmd, sizeof(read_fill_array_cmd));
 
-    timer_wait_us_polled(CMD_DELAY);
+    timer_wait_us_polled(DATASHEET_CMD_DELAY);
 
     i2c_read_addr(bpm_arr, MAXFAST_ARRAY_SIZE);
+
+    if (bpm_arr[0] != 0)
+        LOG_ERROR("read_fill_array()");
 
 }
 
@@ -241,7 +246,7 @@ void process_raw_heart_data() {
 // like readBPM in Arduino code
 void read_heart_sensor() {
 
-    LOG_INFO("** READING HEART SENSOR **");
+    //LOG_INFO("** READING HEART SENSOR **");
 
     read_sensor_hub_status();
     //LOG_INFO("Read sensor hub status");
@@ -282,49 +287,31 @@ void init_heart_sensor() {
 
     set_mfio_interrupt();
 
-
-    LOG_INFO("Initial data");
-    reset_heart_data();
-    print_heart_data();
-
-    LOG_INFO("Read device mode");
+    //LOG_INFO("Read device mode");
     read_device_mode();
-    print_heart_data();
-
 
     /*LOG_INFO("Read sensor hub version");
     read_sensor_hub_version();
     print_heart_data();*/
 
-    LOG_INFO("Set output mode");
+    //LOG_INFO("Set output mode");
     set_output_mode();
-    print_heart_data();
 
-    LOG_INFO("Set fifo threshold");
+    //LOG_INFO("Set fifo threshold");
     set_fifo_threshold();
-    print_heart_data();
 
 
-    LOG_INFO("AGC algo control");
+    //LOG_INFO("AGC algo control");
     agc_algo_control();
-    print_heart_data();
 
-    LOG_INFO("MAX 30101 control");
+    //LOG_INFO("MAX 30101 control");
     max_30101_control();
-    print_heart_data();
 
-    LOG_INFO("Maxim fast algo control");
+    //LOG_INFO("Maxim fast algo control");
     maxim_fast_algo_control();
-    print_heart_data();
 
-    // readAlgoSamples
-    LOG_INFO("Read algo samples");
+    //LOG_INFO("Read algo samples");
     read_algo_samples();
-    print_heart_data();
-
-    // delay 1 sec
-    LOG_INFO("Loading up the buffer with data - delay 4 seconds");
-    timer_wait_us_polled(4000000000);
 
     LOG_INFO("Finished heart sensor initialization");
 

@@ -201,7 +201,7 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                     ble_transmit_heart_data();
 
                     // update variable for LED pulsing
-                    next_pulse_time = letimerMilliseconds() + get_LED_period(get_ble_data_ptr()->heart_rate);
+                    //next_pulse_time = letimerMilliseconds() + get_LED_period(get_ble_data_ptr()->heart_rate);
 
                 }
 
