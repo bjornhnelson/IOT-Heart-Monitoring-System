@@ -17,7 +17,8 @@ typedef enum {
     EVENT_TIMER_EXPIRED,
     EVENT_I2C_DONE,
     EVENT_PB0,
-    EVENT_PB1
+    EVENT_PB1,
+    EVENT_CHECK_SENSOR
 } server_events_t;
 
 typedef enum {
@@ -27,6 +28,12 @@ typedef enum {
     STATE_INTERIM_DELAY,
     STATE_I2C_READ,
 } server_states_t;
+
+typedef enum {
+    STATE_WAITING,
+    STATE_ACQUIRING_DATA,
+    STATE_RETURNING_DATA
+} heart_states_t;
 
 void init_scheduler();
 
@@ -49,5 +56,7 @@ uint8_t bluetooth_connection_errors();
 uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id);
 
 void temperature_state_machine(sl_bt_msg_t* evt);
+
+void heart_sensor_state_machine(sl_bt_msg_t* evt);
 
 #endif /* SRC_SCHEDULER_H_ */

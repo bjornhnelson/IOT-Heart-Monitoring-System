@@ -244,11 +244,8 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
 
     // sequence through states driven by events
     // put this code in scheduler.c/.h
-#if DEVICE_IS_BLE_SERVER
-    temperature_state_machine(evt);
-#else
-    discovery_state_machine(evt);
-#endif
+    heart_sensor_state_machine(evt);
+
    
 } // sl_bt_on_event()
 

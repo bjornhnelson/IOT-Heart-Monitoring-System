@@ -33,8 +33,13 @@ typedef struct {
     uint8_t serverConnectionHandle;
     bool connectionOpen;
     bool indicationInFlight;
-    bool tempIndicationsEnabled;
     bool pbIndicationsEnabled;
+    bool heartRateIndicationsEnabled;
+    bool bloodOxygenIndicationsEnabled;
+
+    uint16_t heart_rate;
+    uint16_t blood_oxygen;
+    uint8_t confidence;
 
     // flags for server + client
     bool bonded;
@@ -73,6 +78,7 @@ ble_data_struct_t* get_ble_data_ptr();
 
 void ble_transmit_button_state();
 void ble_transmit_temp();
+void ble_transmit_heart_data();
 
 // common server + client events
 void ble_boot_event();

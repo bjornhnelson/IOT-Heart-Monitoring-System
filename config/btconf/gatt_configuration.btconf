@@ -156,26 +156,26 @@
   </service>
   
   <!--Heart Rate-->
-  <service advertise="true" id="heart_rate" name="Heart Rate" requirement="mandatory" sourceId="org.bluetooth.service.heart_rate" type="primary" uuid="180D">
-    <informativeText>Abstract: This service exposes heart rate and other data from a Heart Rate Sensor intended for fitness applications. Summary: The HEART RATE Service exposes heart rate and other data related to a heart rate sensor intended for fitness applications. </informativeText>
+  <service advertise="true" id="heart_rate" name="Heart Rate" requirement="mandatory" sourceId="" type="primary" uuid="0a7dce56-2327-4966-971c-603c6b6273fd">
+    <informativeText/>
     
     <!--Heart Rate Measurement-->
-    <characteristic const="false" id="heart_rate_measurement" name="Heart Rate Measurement" sourceId="org.bluetooth.characteristic.heart_rate_measurement" uuid="2A37">
+    <characteristic const="false" id="heart_rate_measurement" name="Heart Rate Measurement" sourceId="" uuid="5041fc78-ceb8-4620-8200-061cf18de7f0">
       <informativeText/>
-      <value length="2" type="hex" variable_length="false">00</value>
+      <value length="1" type="hex" variable_length="false">00</value>
       <properties>
         <read authenticated="false" bonded="true" encrypted="false"/>
         <indicate authenticated="false" bonded="true" encrypted="false"/>
       </properties>
       
       <!--Client Characteristic Configuration-->
-      <descriptor const="false" discoverable="true" id="client_characteristic_configuration" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
+      <descriptor const="false" discoverable="true" id="client_characteristic_configuration_8" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
         <properties>
           <read authenticated="false" bonded="false" encrypted="false"/>
           <write authenticated="false" bonded="false" encrypted="false"/>
         </properties>
-        <value length="2" type="hex" variable_length="false">00</value>
-        <informativeText>Abstract: The Client Characteristic Configuration descriptor defines how the characteristic may be configured by a specific client. Summary: This descriptor shall be persistent across connections for bonded devices.         The Client Characteristic Configuration descriptor is unique for each client. A client may read and write this descriptor to determine and set the configuration for that client.         Authentication and authorization may be required by the server to write this descriptor.         The default value for the Client Characteristic Configuration descriptor is 0x00. Upon connection of non-binded clients, this descriptor is set to the default value. </informativeText>
+        <value length="1" type="hex" variable_length="false">00</value>
+        <informativeText/>
       </descriptor>
     </characteristic>
   </service>
@@ -187,19 +187,19 @@
     <!--Blood Oxygen Measurement-->
     <characteristic const="false" id="blood_oxygen_measurement" name="Blood Oxygen Measurement" sourceId="" uuid="839b2bd8-1e67-4126-b858-626d38f732bf">
       <informativeText/>
-      <value length="2" type="hex" variable_length="false">00</value>
+      <value length="1" type="hex" variable_length="false">00</value>
       <properties>
         <read authenticated="false" bonded="true" encrypted="false"/>
         <indicate authenticated="false" bonded="true" encrypted="false"/>
       </properties>
       
       <!--Client Characteristic Configuration-->
-      <descriptor const="false" discoverable="true" id="client_characteristic_configuration_6" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
+      <descriptor const="false" discoverable="true" id="client_characteristic_configuration_7" name="Client Characteristic Configuration" sourceId="org.bluetooth.descriptor.gatt.client_characteristic_configuration" uuid="2902">
         <properties>
           <read authenticated="false" bonded="false" encrypted="false"/>
           <write authenticated="false" bonded="false" encrypted="false"/>
         </properties>
-        <value length="2" type="hex" variable_length="false">00</value>
+        <value length="1" type="hex" variable_length="false">00</value>
         <informativeText/>
       </descriptor>
     </characteristic>

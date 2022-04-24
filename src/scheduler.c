@@ -12,6 +12,7 @@
 #include "timers.h"
 #include "ble.h"
 #include "lcd.h"
+#include "heart_sensor.h"
 
 #include "em_letimer.h"
 
@@ -21,9 +22,12 @@
 // status variables for the current state of the system
 static server_states_t cur_server_state;
 
+static heart_states_t cur_state;
+
 // resets the data structures at initialization
 void init_scheduler() {
     cur_server_state = STATE_IDLE;
+    cur_state = STATE_WAITING;
     //LOG_INFO("Scheduler started");
 }
 
@@ -31,7 +35,8 @@ void init_scheduler() {
 void scheduler_set_event_UF() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
-    sl_bt_external_signal(EVENT_MEASURE_TEMP);
+    //sl_bt_external_signal(EVENT_MEASURE_TEMP);
+    sl_bt_external_signal(EVENT_CHECK_SENSOR);
     CORE_EXIT_CRITICAL();
 }
 
@@ -91,9 +96,9 @@ void scheduler_set_event_PB1_released() {
  * check if bluetooth connection closed or indications not enabled
  * returns: boolean indicating whether to go to idle state
  */
-uint8_t bluetooth_connection_errors() {
+/*uint8_t bluetooth_connection_errors() {
     return (!(get_ble_data_ptr()->connectionOpen) || !(get_ble_data_ptr()->tempIndicationsEnabled));
-}
+}*/
 
 /*
  * helper function for state machine
@@ -111,6 +116,99 @@ uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id) {
     }
 
     return (evt->data.evt_system_external_signal.extsignals == event_id);
+
+}
+
+void heart_sensor_state_machine(sl_bt_msg_t* evt) {
+
+    // initially assume system will remain in current state
+    uint8_t next_state = cur_state;
+
+    switch (cur_state) {
+
+        case STATE_WAITING:
+            //LOG_INFO("State Waiting for Readings");
+
+            if (external_signal_event_match(evt, EVENT_CHECK_SENSOR)) {
+
+                read_heart_sensor();
+
+                // object detected or finger detected
+                if ((get_heart_data_ptr()->finger_status == OBJECT_DETECTED) || get_heart_data_ptr()->finger_status == FINGER_DETECTED) {
+                    LOG_INFO("State transition: waiting -> acquiring data");
+                    displayPrintf(DISPLAY_ROW_ACTION, "Acquiring data...");
+                    next_state = STATE_ACQUIRING_DATA;
+
+                    timer_wait_us_IRQ(1000000);
+                }
+
+            }
+            break;
+
+        case STATE_ACQUIRING_DATA:
+            //LOG_INFO("State Acquiring Readings");
+
+            if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
+
+                read_heart_sensor();
+
+                if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
+                    displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
+                    next_state = STATE_WAITING;
+                    LOG_INFO("State transition: acquiring data -> waiting");
+                }
+                else if ((get_heart_data_ptr()->confidence > CONFIDENCE_THRESHOLD) && (get_heart_data_ptr()->finger_status == FINGER_DETECTED)) {
+                    next_state = STATE_RETURNING_DATA;
+                    LOG_INFO("State transition: acquiring data -> returning data");
+                }
+
+                timer_wait_us_IRQ(1000000);
+            }
+
+            break;
+
+        case STATE_RETURNING_DATA:
+            //LOG_INFO("State Returning Readings");
+
+            if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
+                read_heart_sensor();
+
+                if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
+                    displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
+                    next_state = STATE_WAITING;
+                    LOG_INFO("State transition: returning data -> waiting");
+                }
+                else if (get_heart_data_ptr()->confidence < CONFIDENCE_THRESHOLD) {
+                    displayPrintf(DISPLAY_ROW_ACTION, "Acquiring data...");
+                    next_state = STATE_ACQUIRING_DATA;
+                    LOG_INFO("State transition: returning data -> acquiring data");
+                }
+                else {
+                    get_ble_data_ptr()->heart_rate = get_heart_data_ptr()->heart_rate;
+                    get_ble_data_ptr()->blood_oxygen = get_heart_data_ptr()->blood_oxygen;
+                    get_ble_data_ptr()->confidence = get_heart_data_ptr()->confidence;
+
+                    displayPrintf(DISPLAY_ROW_ACTION, "");
+                    displayPrintf(DISPLAY_ROW_8, "Heart Rate: %d BPM", get_ble_data_ptr()->heart_rate);
+                    displayPrintf(DISPLAY_ROW_9, "Blood Oxygen: %d%%", get_ble_data_ptr()->blood_oxygen);
+                    displayPrintf(DISPLAY_ROW_10, "Confidence: %d%%", get_ble_data_ptr()->confidence);
+
+                    /*LOG_INFO("** Heart Rate: %d", get_ble_data_ptr()->heart_rate);
+                    LOG_INFO("** Blood Oxygen: %d", get_ble_data_ptr()->blood_oxygen);*/
+
+                    ble_transmit_heart_data();
+
+                }
+
+                timer_wait_us_IRQ(1000000);
+            }
+
+            break;
+    }
+
+    if (cur_state != next_state) {
+        cur_state = next_state; // update global status variable
+    }
 
 }
 

@@ -28,17 +28,14 @@ uint8_t read_sensor_hub_status_cmd[2] = {0x00, 0x00};
 uint8_t num_samples_out_fifo_cmd[2] = {0x12, 0x00}; // get the number of samples available in the fifo
 uint8_t read_fill_array_cmd[2] = {0x12, 0x01}; //
 
-typedef struct heart_sensor_data {
-    uint16_t heart_rate;
-    uint16_t blood_oxygen;
-    uint16_t confidence;
-    uint16_t finger_status;
-} heart_sensor_data;
-
 heart_sensor_data health_data;
 
 #define MAXFAST_ARRAY_SIZE        7
 uint8_t bpm_arr[MAXFAST_ARRAY_SIZE];
+
+heart_sensor_data* get_heart_data_ptr() {
+    return &health_data;
+}
 
 void disable_reset() {
     GPIO_PinOutClear(MAX30101_PORT, MAX30101_RESET_PIN);
@@ -175,7 +172,7 @@ void read_sensor_hub_status() {
         health_data.confidence = 0;
     }
 
-    LOG_INFO("DataRdyInt = %d (0=no, 1=yes)", buf[3]);
+    //LOG_INFO("DataRdyInt = %d (0=no, 1=yes)", buf[3]);
 }
 
 void num_samples_out_fifo() {
@@ -191,7 +188,7 @@ void num_samples_out_fifo() {
     if (buf[0] != 0)
         LOG_ERROR("num_samples_out_fifo()");
 
-    LOG_INFO("Num Samples in fifo: %d", buf[1]);
+    //LOG_INFO("Num Samples in fifo: %d", buf[1]);
 }
 
 void read_fill_array() {
@@ -200,13 +197,11 @@ void read_fill_array() {
     // number of reads
     // array - bpm_arr
 
-    //for (int i=0; i<MAXFAST_ARRAY_SIZE; i++) {
-        i2c_write(read_fill_array_cmd, sizeof(read_fill_array_cmd));
+    i2c_write(read_fill_array_cmd, sizeof(read_fill_array_cmd));
 
-        timer_wait_us_polled(CMD_DELAY);
+    timer_wait_us_polled(CMD_DELAY);
 
-        i2c_read_addr(bpm_arr, MAXFAST_ARRAY_SIZE);
-    //}
+    i2c_read_addr(bpm_arr, MAXFAST_ARRAY_SIZE);
 
 }
 
@@ -225,9 +220,9 @@ void process_raw_heart_data() {
      */
 
 
-    for (int i=0; i<7; i++) {
+    /*for (int i=0; i<7; i++) {
         LOG_INFO("Byte %d: %d", i, bpm_arr[i]);
-    }
+    }*/
 
     health_data.heart_rate = bpm_arr[1] << 8;
     health_data.heart_rate |= bpm_arr[2];
@@ -241,15 +236,12 @@ void process_raw_heart_data() {
 
     health_data.finger_status = bpm_arr[6];
 
-    LOG_INFO("** RESULTS **");
-    LOG_INFO("Heart Rate: %d   Blood Oxygen: %d    Confidence: %d    Status: %d\n", health_data.heart_rate, health_data.blood_oxygen, health_data.confidence, health_data.finger_status);
-
 }
 
 // like readBPM in Arduino code
 void read_heart_sensor() {
 
-
+    LOG_INFO("** READING HEART SENSOR **");
 
     read_sensor_hub_status();
     //LOG_INFO("Read sensor hub status");
@@ -263,6 +255,8 @@ void read_heart_sensor() {
     read_fill_array();
 
     process_raw_heart_data();
+
+    LOG_INFO("Heart Rate: %d   Blood Oxygen: %d    Confidence: %d    Status: %d\n", health_data.heart_rate, health_data.blood_oxygen, health_data.confidence, health_data.finger_status);
 
 }
 
@@ -333,11 +327,5 @@ void init_heart_sensor() {
     timer_wait_us_polled(4000000000);
 
     LOG_INFO("Finished heart sensor initialization");
-
-
-    while(1) {
-        read_heart_sensor();
-        timer_wait_us_polled(1000000);
-    }
 
 }

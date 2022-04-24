@@ -170,6 +170,32 @@ uuid_t pb_characteristic = {
 };
 
 
+
+// UUID = 180D
+uuid_t heart_rate_service = {
+    .data = {0x0D, 0x18}, // little endian
+    .len = 2
+};
+
+// UUID = 2A37
+uuid_t heart_rate_characteristic = {
+    .data = {0x37, 0x2A}, // little endian
+    .len = 2
+};
+
+// UUID = 055b62ff-0d40-4f67-986e-bc7167c67f89
+uuid_t blood_oxygen_service = {
+    .data = {0x89, 0x7F, 0xC6, 0x67, 0x71, 0xBC, 0x6E, 0x98, 0x67, 0x4F, 0x40, 0x0D, 0xFF, 0x62, 0x5B, 0x05}, // little endian
+    .len = 16
+};
+
+// UUID = 839b2bd8-1e67-4126-b858-626d38f732bf
+uuid_t blood_oxygen_characteristic = {
+    .data = {0xBF, 0x32, 0xF7, 0x38, 0x6D, 0x62, 0x58, 0xB8, 0x26, 0x41, 0x67, 0x1E, 0xD8, 0x2B, 0x9B, 0x83}, // little endian
+    .len = 16
+};
+
+
 // provides access to bluetooth data structure for other .c files
 ble_data_struct_t* get_ble_data_ptr() {
     return (&ble_data);
@@ -232,8 +258,104 @@ void ble_transmit_button_state() {
     }
 }
 
+void ble_transmit_heart_data() {
+
+    uint8_t data1 = ble_data.heart_rate;
+    uint8_t data2 = ble_data.blood_oxygen;
+
+    //LOG_INFO("GATT WRITE: %d  %d", data1, data2);
+
+    // write value to GATT database
+    status = sl_bt_gatt_server_write_attribute_value(
+            gattdb_heart_rate_measurement, // characteristic from gatt_db.h
+            0, // offset
+            1, // length
+            &data1 // pointer to value
+            );
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("HEART RATE sl_bt_gatt_server_write_attribute_value");
+    }
+
+    // write value to GATT database
+    status = sl_bt_gatt_server_write_attribute_value(
+            gattdb_blood_oxygen_measurement, // characteristic from gatt_db.h
+            0, // offset
+            1, // length
+            &data2 // pointer to value
+            );
+
+    if (status != SL_STATUS_OK) {
+        LOG_ERROR("BLOOD OXYGEN sl_bt_gatt_server_write_attribute_value");
+    }
+
+    uint8_t data_buffer[2];
+    data_buffer[0] = 0; // flags byte
+    data_buffer[1] = ble_data.heart_rate;
+
+    if (ble_data.connectionOpen && ble_data.heartRateIndicationsEnabled && ble_data.bonded) {
+
+        // no indication in flight, send right away
+        if (!(ble_data.indicationInFlight)) {
+            status = sl_bt_gatt_server_send_indication(
+                    ble_data.serverConnectionHandle,
+                    gattdb_heart_rate_measurement, // characteristic from gatt_db.h
+                    2, // value length
+                    data_buffer // value
+                    );
+
+
+            if (status != SL_STATUS_OK) {
+                LOG_ERROR("HEART RATE sl_bt_gatt_server_send_indication");
+            }
+            else {
+                ble_data.indicationInFlight = true;
+            }
+        }
+        else { // put into circular buffer, send later
+            //LOG_INFO("HR CIRC QUEUE");
+            CORE_DECLARE_IRQ_STATE;
+            CORE_ENTER_CRITICAL();
+            write_queue(gattdb_heart_rate_measurement, 2, data_buffer);
+            CORE_EXIT_CRITICAL();
+        }
+    }
+
+    data_buffer[0] = 0; // flags byte
+    data_buffer[1] = ble_data.blood_oxygen;
+
+    if (ble_data.connectionOpen && ble_data.bloodOxygenIndicationsEnabled && ble_data.bonded) {
+
+        // no indication in flight, send right away
+        if (!(ble_data.indicationInFlight)) {
+            status = sl_bt_gatt_server_send_indication(
+                    ble_data.serverConnectionHandle,
+                    gattdb_blood_oxygen_measurement, // characteristic from gatt_db.h
+                    2, // value length
+                    data_buffer // value
+                    );
+
+
+            if (status != SL_STATUS_OK) {
+                LOG_ERROR("BLOOD OXYGEN sl_bt_gatt_server_send_indication");
+            }
+            else {
+                ble_data.indicationInFlight = true;
+            }
+        }
+        else { // put into circular buffer, send later
+            //LOG_INFO("BLOOD OX CIRC QUEUE");
+            CORE_DECLARE_IRQ_STATE;
+            CORE_ENTER_CRITICAL();
+            write_queue(gattdb_blood_oxygen_measurement, 2, data_buffer);
+            CORE_EXIT_CRITICAL();
+        }
+    }
+
+}
+
 // called by state machine to send temperature indications to client
-void ble_transmit_temp() {
+/*void ble_transmit_temp() {
 
     uint8_t temperature_buffer[5]; // why 5?
     uint8_t* ptr = temperature_buffer;
@@ -291,7 +413,7 @@ void ble_transmit_temp() {
             CORE_EXIT_CRITICAL();
         }
     }
-}
+}*/
 
 // COMMON SERVER + CLIENT EVENTS BELOW
 
@@ -357,13 +479,15 @@ void ble_boot_event() {
     displayInit(); // starts a 1 second soft timer
 
     displayPrintf(DISPLAY_ROW_NAME, BLE_DEVICE_TYPE_STRING);
-    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "A9");
+    displayPrintf(DISPLAY_ROW_ASSIGNMENT, "Final Project");
 
     displayPrintf(DISPLAY_ROW_CONNECTION, "Advertising");
 
     displayPrintf(DISPLAY_ROW_BTADDR, "%x:%x:%x:%x:%x:%x",
                   ble_data.myAddress.addr[0], ble_data.myAddress.addr[1], ble_data.myAddress.addr[2],
                   ble_data.myAddress.addr[3], ble_data.myAddress.addr[4], ble_data.myAddress.addr[5]);
+
+    displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
 
 }
 
@@ -493,11 +617,11 @@ void ble_external_signal_event(sl_bt_msg_t* evt) {
         // set button_state variable, update the LCD
         if (ble_data.pb0Pressed) {
             button_state = 1;
-            displayPrintf(DISPLAY_ROW_9, "Button Pressed");
+            //displayPrintf(DISPLAY_ROW_9, "Button Pressed");
         }
         else {
             button_state = 0;
-            displayPrintf(DISPLAY_ROW_9, "Button Released");
+            //displayPrintf(DISPLAY_ROW_9, "Button Released");
         }
 
         // write command to GATT database
@@ -587,7 +711,7 @@ void ble_sm_bonded_id() {
     ble_data.bonded = true;
     displayPrintf(DISPLAY_ROW_CONNECTION, "Bonded");
     displayPrintf(DISPLAY_ROW_PASSKEY, "");
-    displayPrintf(DISPLAY_ROW_ACTION, "");
+    displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
 }
 
 // displays bonding failure message on LCD
@@ -615,18 +739,15 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
     uint8_t status_flags = evt->data.evt_gatt_server_characteristic_status.status_flags;
     uint16_t client_config_flags = evt->data.evt_gatt_server_characteristic_status.client_config_flags;
 
-    // temperature measurement indication handling
-    if (characteristic == gattdb_temperature_measurement) {
+    // push button state indication handling
+    if (characteristic == gattdb_button_state) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
-                ble_data.tempIndicationsEnabled = false;
-                gpioLed0SetOff();
-                displayPrintf(DISPLAY_ROW_TEMPVALUE, ""); // remove temp value from LCD
+                ble_data.pbIndicationsEnabled = false;
             }
 
             if (client_config_flags == gatt_indication) {
-                gpioLed0SetOn();
-                ble_data.tempIndicationsEnabled = true;
+                ble_data.pbIndicationsEnabled = true;
             }
         }
 
@@ -635,17 +756,36 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
         }
     }
 
-    // push button state indication handling
-    if (characteristic == gattdb_button_state) {
+    // heart rate indication handling
+    if (characteristic == gattdb_heart_rate_measurement) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
-                ble_data.pbIndicationsEnabled = false;
+                ble_data.heartRateIndicationsEnabled = false;
                 gpioLed1SetOff();
             }
 
             if (client_config_flags == gatt_indication) {
                 gpioLed1SetOn();
-                ble_data.pbIndicationsEnabled = true;
+                ble_data.heartRateIndicationsEnabled = true;
+            }
+        }
+
+        if (status_flags == gatt_server_confirmation) {
+            ble_data.indicationInFlight = false;
+        }
+    }
+
+    // blood oxygen indication handling
+    if (characteristic == gattdb_blood_oxygen_measurement) {
+        if (status_flags == gatt_server_client_config) {
+            if (client_config_flags == gatt_disable) {
+                ble_data.bloodOxygenIndicationsEnabled = false;
+                gpioLed0SetOff();
+            }
+
+            if (client_config_flags == gatt_indication) {
+                gpioLed0SetOn();
+                ble_data.bloodOxygenIndicationsEnabled = true;
             }
         }
 
