@@ -11,7 +11,7 @@
 #include "gpio.h"
 #include "i2c.h"
 
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 #define CMD_DELAY 60

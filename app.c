@@ -220,6 +220,9 @@ SL_WEAK void app_process_action(void)
     LOG_INFO("Start 2 sec IRQ");
     timer_wait_us_IRQ(2000000);*/
 
+    //LOG_INFO("TEST TIMER @ %d", letimerMilliseconds());
+    pulse_LED();
+
 }
 
 /**************************************************************************//**

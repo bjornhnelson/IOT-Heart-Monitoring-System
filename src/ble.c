@@ -145,56 +145,6 @@ sl_status_t status; // return variable for various api calls
 
 ble_data_struct_t ble_data; // // BLE private data
 
-// UUID = 1809
-uuid_t htm_service = {
-    .data = {0x09, 0x18}, // little endian
-    .len = 2
-};
-
-// UUID = 2A1C
-uuid_t htm_characteristic = {
-    .data = {0x1C, 0x2A}, // little endian
-    .len = 2
-};
-
-// UUID = 00000001-38c8-433e-87ec-652a2d136289
-uuid_t pb_service = {
-    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x01, 0x00, 0x00, 0x00}, // little endian
-    .len = 16
-};
-
-// UUID = 00000002-38c8-433e-87ec-652a2d136289
-uuid_t pb_characteristic = {
-    .data = {0x89, 0x62, 0x13, 0x2d, 0x2a, 0x65, 0xec, 0x87, 0x3e, 0x43, 0xc8, 0x38, 0x02, 0x00, 0x00, 0x00}, // little endian
-    .len = 16
-};
-
-
-
-// UUID = 180D
-uuid_t heart_rate_service = {
-    .data = {0x0D, 0x18}, // little endian
-    .len = 2
-};
-
-// UUID = 2A37
-uuid_t heart_rate_characteristic = {
-    .data = {0x37, 0x2A}, // little endian
-    .len = 2
-};
-
-// UUID = 055b62ff-0d40-4f67-986e-bc7167c67f89
-uuid_t blood_oxygen_service = {
-    .data = {0x89, 0x7F, 0xC6, 0x67, 0x71, 0xBC, 0x6E, 0x98, 0x67, 0x4F, 0x40, 0x0D, 0xFF, 0x62, 0x5B, 0x05}, // little endian
-    .len = 16
-};
-
-// UUID = 839b2bd8-1e67-4126-b858-626d38f732bf
-uuid_t blood_oxygen_characteristic = {
-    .data = {0xBF, 0x32, 0xF7, 0x38, 0x6D, 0x62, 0x58, 0xB8, 0x26, 0x41, 0x67, 0x1E, 0xD8, 0x2B, 0x9B, 0x83}, // little endian
-    .len = 16
-};
-
 
 // provides access to bluetooth data structure for other .c files
 ble_data_struct_t* get_ble_data_ptr() {
@@ -780,11 +730,11 @@ void ble_server_characteristic_status_event(sl_bt_msg_t* evt) {
         if (status_flags == gatt_server_client_config) {
             if (client_config_flags == gatt_disable) {
                 ble_data.bloodOxygenIndicationsEnabled = false;
-                gpioLed0SetOff();
+                //gpioLed0SetOff();
             }
 
             if (client_config_flags == gatt_indication) {
-                gpioLed0SetOn();
+                //gpioLed0SetOn();
                 ble_data.bloodOxygenIndicationsEnabled = true;
             }
         }

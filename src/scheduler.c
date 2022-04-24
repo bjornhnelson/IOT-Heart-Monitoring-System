@@ -13,10 +13,12 @@
 #include "ble.h"
 #include "lcd.h"
 #include "heart_sensor.h"
+#include "irq.h"
+#include "led.h"
 
 #include "em_letimer.h"
 
-#define INCLUDE_LOG_DEBUG 1
+//#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 // status variables for the current state of the system
@@ -197,6 +199,9 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                     LOG_INFO("** Blood Oxygen: %d", get_ble_data_ptr()->blood_oxygen);*/
 
                     ble_transmit_heart_data();
+
+                    // update variable for LED pulsing
+                    next_pulse_time = letimerMilliseconds() + get_LED_period(get_ble_data_ptr()->heart_rate);
 
                 }
 

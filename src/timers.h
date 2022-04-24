@@ -17,5 +17,6 @@ extern uint16_t timer_max_ticks;
 void init_timer();
 void timer_wait_us_polled(uint32_t us_wait);
 void timer_wait_us_IRQ(uint32_t us_wait);
+uint32_t letimerMilliseconds();
 
 #endif /* SRC_TIMERS_H_ */
