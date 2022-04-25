@@ -168,6 +168,7 @@ SL_WEAK void app_init(void)
     init_GPIO();
     init_oscillators();
     init_timer();
+    init_i2c();
 
     NVIC_ClearPendingIRQ(LETIMER0_IRQn);
     NVIC_EnableIRQ(LETIMER0_IRQn);
@@ -176,7 +177,14 @@ SL_WEAK void app_init(void)
     NVIC_EnableIRQ(GPIO_EVEN_IRQn);
     NVIC_EnableIRQ(GPIO_ODD_IRQn);
 
+    // configure settings for heart sensor
     init_heart_sensor();
+
+    timer_wait_us_polled(1000000);
+
+    // turn it off until next interrupt
+    turn_off_heart_sensor();
+
 
 }
 
@@ -223,6 +231,7 @@ SL_WEAK void app_process_action(void)
     //LOG_INFO("TEST TIMER @ %d", letimerMilliseconds());
 
     //pulse_LED();
+
 
 }
 

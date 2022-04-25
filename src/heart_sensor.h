@@ -27,6 +27,10 @@ heart_sensor_data* get_heart_data_ptr();
 
 void init_heart_sensor();
 
+void turn_off_heart_sensor();
+
+void turn_on_heart_sensor();
+
 void read_heart_sensor();
 
 #endif /* SRC_HEART_SENSOR_H_ */

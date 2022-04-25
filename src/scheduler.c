@@ -18,7 +18,7 @@
 
 #include "em_letimer.h"
 
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 // status variables for the current state of the system
@@ -133,15 +133,25 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
             if (external_signal_event_match(evt, EVENT_CHECK_SENSOR)) {
 
+                turn_on_heart_sensor();
+
+                // light needs to shine for 0.5 seconds before object detected
+                timer_wait_us_polled(500000);
+
                 read_heart_sensor();
 
                 // object detected or finger detected
                 if ((get_heart_data_ptr()->finger_status == OBJECT_DETECTED) || get_heart_data_ptr()->finger_status == FINGER_DETECTED) {
                     LOG_INFO("State transition: waiting -> acquiring data");
+
                     displayPrintf(DISPLAY_ROW_ACTION, "Acquiring data...");
                     next_state = STATE_ACQUIRING_DATA;
 
                     timer_wait_us_IRQ(1000000);
+                }
+                // turn the sensor back off if nothing detected
+                else {
+                    turn_off_heart_sensor();
                 }
 
             }
@@ -155,13 +165,16 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                 read_heart_sensor();
 
                 if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
+                    LOG_INFO("State transition: acquiring data -> waiting");
+
                     displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
                     next_state = STATE_WAITING;
-                    LOG_INFO("State transition: acquiring data -> waiting");
+                    turn_off_heart_sensor();
                 }
                 else if ((get_heart_data_ptr()->confidence > CONFIDENCE_THRESHOLD) && (get_heart_data_ptr()->finger_status == FINGER_DETECTED)) {
-                    next_state = STATE_RETURNING_DATA;
                     LOG_INFO("State transition: acquiring data -> returning data");
+
+                    next_state = STATE_RETURNING_DATA;
                 }
 
                 timer_wait_us_IRQ(1000000);
@@ -177,6 +190,7 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
                 if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
                     displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
+                    turn_off_heart_sensor();
                     next_state = STATE_WAITING;
                     LOG_INFO("State transition: returning data -> waiting");
                 }

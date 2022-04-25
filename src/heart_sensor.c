@@ -11,24 +11,30 @@
 #include "gpio.h"
 #include "i2c.h"
 
-//#define INCLUDE_LOG_DEBUG 1
+#define INCLUDE_LOG_DEBUG 1
 #include "log.h"
 
 // 60 us to short for some functions, experimented with values
-#define CMD_DELAY 100000
+#define CMD_DELAY 50000
+//#define CMD_DELAY 60
 #define DATASHEET_CMD_DELAY 60
 
 uint8_t read_device_mode_cmd[2] = {0x02, 0x00};
-uint8_t read_sensor_hub_version_cmd[2] = {0xFF, 0x03};
-uint8_t set_output_mode_cmd[3] = {0x10, 0x00, 0x02}; // algorithm data
+uint8_t read_sensor_hub_version_cmd[2] = {0xFF, 0x03}; // for debugging
+
+uint8_t set_output_mode_cmd[3] = {0x10, 0x00, 0x02}; // mode = algorithm data
 uint8_t set_fifo_threshold_cmd[3] = {0x10, 0x01, 0x01}; // last byte = interrupt threshold for FIFO almost full
 uint8_t agc_algo_control_cmd[3] = {0x52, 0x00, 0x01}; // enable the AGC algorithm
-uint8_t max30101_control_cmd[3] = {0x44, 0x03, 0x01}; // enable the MAX 30001 sensor
-uint8_t maxim_fast_algo_control_cmd[3] = {0x52, 0x02, 0x01}; // enable the WHRM, MaximFast algorithm
-uint8_t read_algo_samples_cmd[3] = {0x51, 0x00, 0x03}; // read number of samples being averaged in algorithm
+uint8_t enable_sensor_cmd[3] = {0x44, 0x03, 0x01}; // turn on the MAX 30001 sensor
+uint8_t enable_algo_cmd[3] = {0x52, 0x02, 0x01}; // enable the WHRM, MaximFast algorithm
+uint8_t read_algo_samples_cmd[3] = {0x51, 0x00, 0x03}; // read number of samples being averaged in algorithm -> 5
+
 uint8_t read_sensor_hub_status_cmd[2] = {0x00, 0x00};
 uint8_t num_samples_out_fifo_cmd[2] = {0x12, 0x00}; // get the number of samples available in the fifo
-uint8_t read_fill_array_cmd[2] = {0x12, 0x01}; //
+uint8_t read_fill_array_cmd[2] = {0x12, 0x01}; // get the data
+
+uint8_t disable_sensor_cmd[3] = {0x44, 0x03, 0x00}; // turn off the MAX 30001 sensor
+uint8_t disable_algo_cmd[3] = {0x52, 0x02, 0x00}; // turn off the WHRM, MaximFast algorithm
 
 heart_sensor_data health_data;
 
@@ -121,26 +127,26 @@ void agc_algo_control() {
         LOG_ERROR("agc_algo_control()");
 }
 
-void max_30101_control() {
-    i2c_write(max30101_control_cmd, sizeof(max30101_control_cmd));
+void enable_sensor() {
+    i2c_write(enable_sensor_cmd, sizeof(enable_sensor_cmd));
 
     timer_wait_us_polled(CMD_DELAY);
 
     i2c_read();
 
     if (status_byte_error())
-        LOG_ERROR("max_30101_control()");
+        LOG_ERROR("enable_sensor()");
 }
 
-void maxim_fast_algo_control() {
-    i2c_write(maxim_fast_algo_control_cmd, sizeof(maxim_fast_algo_control_cmd));
+void enable_algo() {
+    i2c_write(enable_algo_cmd, sizeof(enable_algo_cmd));
 
     timer_wait_us_polled(CMD_DELAY);
 
     i2c_read();
 
     if (status_byte_error())
-        LOG_ERROR("maxim_fast_algo_control()");
+        LOG_ERROR("enable_algo()");
 }
 
 void read_algo_samples() {
@@ -210,6 +216,35 @@ void read_fill_array() {
 
 }
 
+void disable_sensor() {
+    uint8_t buf[8];
+
+    i2c_write(disable_sensor_cmd, sizeof(disable_sensor_cmd));
+
+    timer_wait_us_polled(CMD_DELAY);
+
+    i2c_read_addr(buf, 8);
+
+    if (buf[0] != 0)
+        LOG_ERROR("disable_sensor()");
+
+}
+
+void disable_algo() {
+    uint8_t buf[8];
+
+    i2c_write(disable_algo_cmd, sizeof(disable_algo_cmd));
+
+    timer_wait_us_polled(CMD_DELAY);
+
+    i2c_read_addr(buf, 8);
+
+    if (buf[0] != 0)
+        LOG_ERROR("disable_algo()");
+}
+
+
+
 void process_raw_heart_data() {
     /*
      * bytes 0-1: Heart Rate (bpm): 16-bit, LSB = 0.1 bpm
@@ -248,6 +283,9 @@ void read_heart_sensor() {
 
     //LOG_INFO("** READING HEART SENSOR **");
 
+    // EM <= 1 required during I2C transfers
+    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+
     read_sensor_hub_status();
     //LOG_INFO("Read sensor hub status");
     //print_heart_data();
@@ -259,10 +297,26 @@ void read_heart_sensor() {
 
     read_fill_array();
 
+    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+
     process_raw_heart_data();
 
     LOG_INFO("Heart Rate: %d   Blood Oxygen: %d    Confidence: %d    Status: %d\n", health_data.heart_rate, health_data.blood_oxygen, health_data.confidence, health_data.finger_status);
 
+}
+
+void turn_off_heart_sensor() {
+    LOG_INFO("Turning off heart sensor\n");
+
+    disable_sensor();
+    disable_algo();
+}
+
+void turn_on_heart_sensor() {
+    LOG_INFO("Turning on heart sensor");
+
+    enable_sensor();
+    enable_algo();
 }
 
 
@@ -271,10 +325,8 @@ void init_heart_sensor() {
 
     // GPIO pin modes already configured
 
-    //LOG_INFO("2 sec delay");
-    //timer_wait_us_polled(2000000);
-
-    init_i2c();
+    // EM <= 1 required during I2C transfers
+    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
 
     disable_reset();
     enable_mfio();
@@ -300,18 +352,19 @@ void init_heart_sensor() {
     //LOG_INFO("Set fifo threshold");
     set_fifo_threshold();
 
-
     //LOG_INFO("AGC algo control");
     agc_algo_control();
 
     //LOG_INFO("MAX 30101 control");
-    max_30101_control();
+    enable_sensor();
 
     //LOG_INFO("Maxim fast algo control");
-    maxim_fast_algo_control();
+    enable_algo();
 
     //LOG_INFO("Read algo samples");
     read_algo_samples();
+
+    //sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
 
     LOG_INFO("Finished heart sensor initialization");
 

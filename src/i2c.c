@@ -43,7 +43,7 @@ uint8_t* get_heart_data() {
 
 void reset_heart_data() {
     for (int i=0; i<8; i++) {
-        heart_data[i] = 7;
+        heart_data[i] = 0;
     }
 }
 
