@@ -58,6 +58,7 @@
 #include "src/timers.h"
 #include "src/scheduler.h"
 #include "src/i2c.h"
+#include "src/led.h"
 #include "src/heart_sensor.h"
 #include "em_letimer.h"
 
@@ -118,8 +119,6 @@
 #include "src/log.h"
 
 
-
-
 /*****************************************************************************
  * Application Power Manager callbacks
  *****************************************************************************/
@@ -173,17 +172,19 @@ SL_WEAK void app_init(void)
     NVIC_ClearPendingIRQ(LETIMER0_IRQn);
     NVIC_EnableIRQ(LETIMER0_IRQn);
 
-    // enable interrupts for button
+    // enable interrupts for buttons
     NVIC_EnableIRQ(GPIO_EVEN_IRQn);
     NVIC_EnableIRQ(GPIO_ODD_IRQn);
 
     // configure settings for heart sensor
     init_heart_sensor();
 
-    timer_wait_us_polled(1000000);
+    timer_wait_us_polled(2000000);
 
     // turn it off until next interrupt
+    #ifdef LOW_POWER_MODE
     turn_off_heart_sensor();
+    #endif
 
 
 }
@@ -195,8 +196,8 @@ SL_WEAK void app_init(void)
  * comment out this function. Wait loops are a bad idea in general.
  * We'll discuss how to do this a better way in the next assignment.
  *****************************************************************************/
-/*
-static void delayApprox(int delay)
+
+/*static void delayApprox(int delay)
 {
   volatile int i;
 
@@ -204,8 +205,8 @@ static void delayApprox(int delay)
       i=i+1;
   }
 
-} // delayApprox()
-*/
+} // delayApprox()*/
+
 
 
 
@@ -221,17 +222,13 @@ SL_WEAK void app_process_action(void)
   //         We will create/use a scheme that is far more energy efficient in
   //         later assignments.
 
-  // no code called here in A5
-
-    /*LOG_INFO("Start 2 sec polled");
-    timer_wait_us_polled(2000000);
-    LOG_INFO("Start 2 sec IRQ");
-    timer_wait_us_IRQ(2000000);*/
 
     //LOG_INFO("TEST TIMER @ %d", letimerMilliseconds());
 
-    //pulse_LED();
 
+    #ifndef LOW_POWER_MODE
+    pulse_LED();
+    #endif
 
 }
 

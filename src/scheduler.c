@@ -95,14 +95,6 @@ void scheduler_set_event_PB1_released() {
 }
 
 /*
- * check if bluetooth connection closed or indications not enabled
- * returns: boolean indicating whether to go to idle state
- */
-/*uint8_t bluetooth_connection_errors() {
-    return (!(get_ble_data_ptr()->connectionOpen) || !(get_ble_data_ptr()->tempIndicationsEnabled));
-}*/
-
-/*
  * helper function for state machine
  * 1. checks if event is an external signal
  * 2. if so, checks if extsignals matches event_id input parameter
@@ -133,10 +125,12 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
             if (external_signal_event_match(evt, EVENT_CHECK_SENSOR)) {
 
+                #ifdef LOW_POWER_MODE
                 turn_on_heart_sensor();
 
-                // light needs to shine for 0.5 seconds before object detected
+                // needs to be on for 0.5 seconds before object detected
                 timer_wait_us_polled(500000);
+                #endif
 
                 read_heart_sensor();
 
@@ -151,7 +145,9 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                 }
                 // turn the sensor back off if nothing detected
                 else {
+                    #ifdef LOW_POWER_MODE
                     turn_off_heart_sensor();
+                    #endif
                 }
 
             }
@@ -169,7 +165,10 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
                     displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
                     next_state = STATE_WAITING;
+
+                    #ifdef LOW_POWER_MODE
                     turn_off_heart_sensor();
+                    #endif
                 }
                 else if ((get_heart_data_ptr()->confidence > CONFIDENCE_THRESHOLD) && (get_heart_data_ptr()->finger_status == FINGER_DETECTED)) {
                     LOG_INFO("State transition: acquiring data -> returning data");
@@ -190,7 +189,11 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
                 if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
                     displayPrintf(DISPLAY_ROW_ACTION, "Place Finger!");
+
+                    #ifdef LOW_POWER_MODE
                     turn_off_heart_sensor();
+                    #endif
+
                     next_state = STATE_WAITING;
                     LOG_INFO("State transition: returning data -> waiting");
                 }
@@ -209,13 +212,10 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                     displayPrintf(DISPLAY_ROW_9, "Blood Oxygen: %d%%", get_ble_data_ptr()->blood_oxygen);
                     displayPrintf(DISPLAY_ROW_10, "Confidence: %d%%", get_ble_data_ptr()->confidence);
 
-                    /*LOG_INFO("** Heart Rate: %d", get_ble_data_ptr()->heart_rate);
-                    LOG_INFO("** Blood Oxygen: %d", get_ble_data_ptr()->blood_oxygen);*/
-
                     ble_transmit_heart_data();
 
                     // update variable for LED pulsing
-                    //next_pulse_time = letimerMilliseconds() + get_LED_period(get_ble_data_ptr()->heart_rate);
+                    next_pulse_time = letimerMilliseconds() + get_LED_period(get_ble_data_ptr()->heart_rate);
 
                 }
 

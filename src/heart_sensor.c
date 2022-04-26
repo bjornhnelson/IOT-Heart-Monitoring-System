@@ -256,13 +256,7 @@ void process_raw_heart_data() {
      *         2 = object other than finger detected
      *         3 = finger detected
      *
-     * END OF DATA
      */
-
-
-    /*for (int i=0; i<7; i++) {
-        LOG_INFO("Byte %d: %d", i, bpm_arr[i]);
-    }*/
 
     health_data.heart_rate = bpm_arr[1] << 8;
     health_data.heart_rate |= bpm_arr[2];
@@ -275,7 +269,6 @@ void process_raw_heart_data() {
     health_data.confidence = bpm_arr[3];
 
     health_data.finger_status = bpm_arr[6];
-
 }
 
 // like readBPM in Arduino code
@@ -284,20 +277,19 @@ void read_heart_sensor() {
     //LOG_INFO("** READING HEART SENSOR **");
 
     // EM <= 1 required during I2C transfers
-    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+    sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
 
     read_sensor_hub_status();
     //LOG_INFO("Read sensor hub status");
     //print_heart_data();
 
-    // CAREFUL, THIS OVERWRITES PART OF HEART RATE DATA
     num_samples_out_fifo();
     //LOG_INFO("Num samples out fifo");
     //print_heart_data();
 
     read_fill_array();
 
-    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+    sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
 
     process_raw_heart_data();
 
@@ -326,7 +318,7 @@ void init_heart_sensor() {
     // GPIO pin modes already configured
 
     // EM <= 1 required during I2C transfers
-    //sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
+    sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
 
     disable_reset();
     enable_mfio();
@@ -364,7 +356,7 @@ void init_heart_sensor() {
     //LOG_INFO("Read algo samples");
     read_algo_samples();
 
-    //sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
+    sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
 
     LOG_INFO("Finished heart sensor initialization");
 

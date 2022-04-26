@@ -10,6 +10,8 @@
 
 #include "stdint.h"
 
+//#define LOW_POWER_MODE 0
+
 
 #define FINGER_DETECTED 3
 #define OBJECT_DETECTED 1
