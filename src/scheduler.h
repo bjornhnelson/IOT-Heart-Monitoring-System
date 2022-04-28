@@ -22,14 +22,6 @@ typedef enum {
 } server_events_t;
 
 typedef enum {
-    STATE_IDLE,
-    STATE_SENSOR_POWERUP,
-    STATE_I2C_WRITE,
-    STATE_INTERIM_DELAY,
-    STATE_I2C_READ,
-} server_states_t;
-
-typedef enum {
     STATE_WAITING,
     STATE_ACQUIRING_DATA,
     STATE_RETURNING_DATA
@@ -38,24 +30,14 @@ typedef enum {
 void init_scheduler();
 
 void scheduler_set_event_UF();
-
 void scheduler_set_event_COMP1();
-
 void scheduler_set_event_I2C();
-
 void scheduler_set_event_PB0_pressed();
-
 void scheduler_set_event_PB0_released();
-
 void scheduler_set_event_PB1_pressed();
-
 void scheduler_set_event_PB1_released();
 
-uint8_t bluetooth_connection_errors();
-
 uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id);
-
-void temperature_state_machine(sl_bt_msg_t* evt);
 
 void heart_sensor_state_machine(sl_bt_msg_t* evt);
 

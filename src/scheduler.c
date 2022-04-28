@@ -22,18 +22,15 @@
 #include "log.h"
 
 // status variables for the current state of the system
-static server_states_t cur_server_state;
-
 static heart_states_t cur_state;
 
 // resets the data structures at initialization
 void init_scheduler() {
-    cur_server_state = STATE_IDLE;
     cur_state = STATE_WAITING;
     //LOG_INFO("Scheduler started");
 }
 
-// signals to bluetooth stack that external event occurred (3 second timer elapsed)
+// signals to bluetooth stack that external event occurred (5 second timer elapsed)
 void scheduler_set_event_UF() {
     CORE_DECLARE_IRQ_STATE;
     CORE_ENTER_CRITICAL();
@@ -113,6 +110,12 @@ uint8_t external_signal_event_match(sl_bt_msg_t* evt, uint8_t event_id) {
 
 }
 
+/*
+ *
+ * state machine for getting heart data
+ *
+ * evt = bluetooth event
+ */
 void heart_sensor_state_machine(sl_bt_msg_t* evt) {
 
     // initially assume system will remain in current state
@@ -128,13 +131,13 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                 #ifdef LOW_POWER_MODE
                 turn_on_heart_sensor();
 
-                // needs to be on for 0.5 seconds before object detected
+                // needs to be on for 0.5 seconds before object detected in low power mode
                 timer_wait_us_polled(500000);
                 #endif
 
                 read_heart_sensor();
 
-                // object detected or finger detected
+                // acquire data if finger detected
                 if ((get_heart_data_ptr()->finger_status == OBJECT_DETECTED) || get_heart_data_ptr()->finger_status == FINGER_DETECTED) {
                     LOG_INFO("State transition: waiting -> acquiring data");
 
@@ -156,10 +159,12 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
         case STATE_ACQUIRING_DATA:
             //LOG_INFO("State Acquiring Readings");
 
+            // 1 second timer finished
             if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
 
                 read_heart_sensor();
 
+                // go back to waiting state if finger removed
                 if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
                     LOG_INFO("State transition: acquiring data -> waiting");
 
@@ -170,6 +175,7 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                     turn_off_heart_sensor();
                     #endif
                 }
+                // move to next state if confidence value high enough
                 else if ((get_heart_data_ptr()->confidence > CONFIDENCE_THRESHOLD) && (get_heart_data_ptr()->finger_status == FINGER_DETECTED)) {
                     LOG_INFO("State transition: acquiring data -> returning data");
 
@@ -184,7 +190,9 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
         case STATE_RETURNING_DATA:
             //LOG_INFO("State Returning Readings");
 
+            // 1 second timer finished
             if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
+
                 read_heart_sensor();
 
                 if ((get_heart_data_ptr()->finger_status == NOTHING_DETECTED)) {
@@ -197,11 +205,14 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
                     next_state = STATE_WAITING;
                     LOG_INFO("State transition: returning data -> waiting");
                 }
+                // wait longer until returning data
                 else if (get_heart_data_ptr()->confidence < CONFIDENCE_THRESHOLD) {
                     displayPrintf(DISPLAY_ROW_ACTION, "Acquiring data...");
                     next_state = STATE_ACQUIRING_DATA;
                     LOG_INFO("State transition: returning data -> acquiring data");
                 }
+
+                // save results, transmit data over BLE, and update the LCD display
                 else {
                     get_ble_data_ptr()->heart_rate = get_heart_data_ptr()->heart_rate;
                     get_ble_data_ptr()->blood_oxygen = get_heart_data_ptr()->blood_oxygen;
@@ -229,142 +240,5 @@ void heart_sensor_state_machine(sl_bt_msg_t* evt) {
         cur_state = next_state; // update global status variable
     }
 
-}
-
-// server processing logic for handling states and events
-void temperature_state_machine(sl_bt_msg_t* evt) {
-
-    // initially assume system will remain in current state
-    uint8_t next_state = cur_server_state;
-
-    switch (cur_server_state) {
-
-        case STATE_IDLE:
-
-            // return to idle case
-            if (bluetooth_connection_errors()) {
-                next_state = STATE_IDLE;
-            }
-
-            // when underflow interrupt occurs
-            else if (external_signal_event_match(evt, EVENT_MEASURE_TEMP)) {
-                next_state = STATE_SENSOR_POWERUP;
-
-                // initialize i2c
-                init_i2c();
-
-                // wait 80 ms for sensor to power up
-                timer_wait_us_IRQ(80000);
-            }
-            break;
-
-        case STATE_SENSOR_POWERUP:
-
-            // return to idle case
-            if (bluetooth_connection_errors()) {
-                next_state = STATE_IDLE;
-                LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
-                deinit_i2c();
-            }
-
-            // when COMP 1 interrupt occurs
-            else if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
-                next_state = STATE_I2C_WRITE;
-
-                // EM <= 1 required during I2C transfers
-                sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
-
-                // send the request for a temperature measurement
-                i2c_send_command();
-            }
-            break;
-
-        case STATE_I2C_WRITE:
-
-            // return to idle case
-            if (bluetooth_connection_errors()) {
-                next_state = STATE_IDLE;
-                NVIC_DisableIRQ(I2C0_IRQn);
-                deinit_i2c();
-                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
-            }
-
-            // when I2C interrupt occurs
-            else if (external_signal_event_match(evt, EVENT_I2C_DONE)) {
-                next_state = STATE_INTERIM_DELAY;
-
-                // I2C transfer over, EM <= 1 no longer required
-                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
-
-                // disable i2c interrupts
-                NVIC_DisableIRQ(I2C0_IRQn);
-
-                // 10.8 ms delay between write and read
-                timer_wait_us_IRQ(10800);
-            }
-            break;
-
-        case STATE_INTERIM_DELAY:
-
-            // return to idle case
-            if (bluetooth_connection_errors()) {
-                next_state = STATE_IDLE;
-                LETIMER_IntDisable(LETIMER0, LETIMER_IEN_COMP1); // disable comp1 interrupt
-                deinit_i2c();
-            }
-
-            // when COMP1 interrupt occurs
-            else if (external_signal_event_match(evt, EVENT_TIMER_EXPIRED)) {
-                next_state = STATE_I2C_READ;
-
-                // EM <= 1 required during I2C transfers
-                sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);
-
-                // saves the temperature measurement in i2c.c variable
-                i2c_receive_data();
-            }
-            break;
-
-        case STATE_I2C_READ:
-
-            // return to idle case
-            if (bluetooth_connection_errors()) {
-                next_state = STATE_IDLE;
-                NVIC_DisableIRQ(I2C0_IRQn);
-                deinit_i2c();
-                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
-            }
-
-            // when i2c interrupt occurs
-            else if (external_signal_event_match(evt, EVENT_I2C_DONE)) {
-                next_state = STATE_IDLE;
-
-                // I2C transfer over, EM <= 1 no longer required
-                sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);
-
-                // disable i2c interrupts
-                NVIC_DisableIRQ(I2C0_IRQn);
-
-                // send the temperature value
-                ble_transmit_temp();
-
-                // deinitialize i2c
-                deinit_i2c();
-            }
-            break;
-    }
-
-    // do a state transition
-    if (cur_server_state != next_state) {
-        cur_server_state = next_state; // update global status variable
-
-        /*
-         * IMPORTANT NOTE:
-         * Leave this log statement commented out unless the board is running in EM0
-         * Logging is slow and will cause the i2c interrupts to be missed
-         */
-        //LOG_INFO("STATE TRANSITION: %d -> %d", cur_state, next_state);
-
-    }
 }
 

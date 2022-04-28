@@ -16,7 +16,6 @@
 extern uint64_t next_pulse_time;
 
 uint16_t get_LED_period(uint16_t bpm);
-
 void pulse_LED();
 
 #endif /* SRC_LED_H_ */

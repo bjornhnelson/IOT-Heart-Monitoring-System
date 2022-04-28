@@ -77,7 +77,6 @@ extern uuid_t pb_characteristic;
 ble_data_struct_t* get_ble_data_ptr();
 
 void ble_transmit_button_state();
-void ble_transmit_temp();
 void ble_transmit_heart_data();
 
 // common server + client events

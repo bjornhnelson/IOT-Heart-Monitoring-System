@@ -208,6 +208,7 @@ void ble_transmit_button_state() {
     }
 }
 
+// called in state machine to send heart rate and blood oxygen data to client
 void ble_transmit_heart_data() {
 
     uint8_t data1 = ble_data.heart_rate;
@@ -303,67 +304,6 @@ void ble_transmit_heart_data() {
     }
 
 }
-
-// called by state machine to send temperature indications to client
-/*void ble_transmit_temp() {
-
-    uint8_t temperature_buffer[5]; // why 5?
-    uint8_t* ptr = temperature_buffer;
-
-    uint8_t flags = 0x00;
-    uint8_t temperature_in_c = get_temp();
-    displayPrintf(DISPLAY_ROW_TEMPVALUE, "Temp=%d", temperature_in_c);
-
-    // convert into IEEE-11073 32-bit floating point value
-    uint32_t temperature_flt = UINT32_TO_FLOAT(temperature_in_c*1000, -3);
-
-    // put flag in the temperature buffer
-    UINT8_TO_BITSTREAM(ptr, flags);
-
-    // put temperature value in the temperature_buffer
-    UINT32_TO_BITSTREAM(ptr, temperature_flt);
-
-    // write value to GATT database
-    status = sl_bt_gatt_server_write_attribute_value(
-            gattdb_temperature_measurement, // characteristic from gatt_db.h
-            0, // offset
-            4, // length
-            &temperature_in_c // pointer to value
-            );
-
-    temperature_in_c += 5;
-
-    if (status != SL_STATUS_OK) {
-        LOG_ERROR("TEMP sl_bt_gatt_server_write_attribute_value");
-    }
-
-    // check if conditions are correct to send an indication
-    if (ble_data.connectionOpen && ble_data.tempIndicationsEnabled) {
-
-        // no indication in flight, send right away
-        if (!(ble_data.indicationInFlight)) {
-            status = sl_bt_gatt_server_send_indication(
-                    ble_data.serverConnectionHandle,
-                    gattdb_temperature_measurement, // characteristic from gatt_db.h
-                    5, // value length
-                    temperature_buffer // value
-                    );
-
-            if (status != SL_STATUS_OK) {
-                LOG_ERROR("TEMP sl_bt_gatt_server_send_indication");
-            }
-            else {
-                ble_data.indicationInFlight = true;
-            }
-        }
-        else { // put into circular buffer, send later
-            CORE_DECLARE_IRQ_STATE;
-            CORE_ENTER_CRITICAL();
-            write_queue(gattdb_temperature_measurement, 5, temperature_buffer);
-            CORE_EXIT_CRITICAL();
-        }
-    }
-}*/
 
 // COMMON SERVER + CLIENT EVENTS BELOW
 

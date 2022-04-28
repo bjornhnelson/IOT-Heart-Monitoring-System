@@ -15,18 +15,26 @@
 #define ON 1
 #define OFF 0
 
+// LED is currently on or off
 bool ledStatus = OFF;
 
 // set to an actual value in scheduler.c
 uint64_t next_pulse_time = ULLONG_MAX;
 
+/*
+ * calculate the period based on heart rate
+ *
+ * bpm = heart rate in beats per minute
+ */
 uint16_t get_LED_period(uint16_t bpm) {
     uint16_t result = SEC_PER_MIN * MSEC_PER_SEC / bpm;
     result /= 2;
     return result;
 }
 
-
+/*
+ * toggle LED on/off based on next_pulse_time and number of milliseconds since startup
+ */
 void pulse_LED() {
 
     if (letimerMilliseconds() > next_pulse_time) {
